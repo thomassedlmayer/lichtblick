@@ -53,6 +53,10 @@ const SCENE_ENTITIES_DEFAULT_SETTINGS: LayerSettingsEntity = {
 export class FoxgloveSceneEntities extends SceneExtension<TopicEntities> {
   public static extensionId = "foxglove.SceneEntities";
   #primitivePool = new PrimitivePool(this.renderer);
+  #pendingEntityUpdates = new Map<
+    string,
+    Map<string, { entity: SceneEntity; receiveTime: bigint }>
+  >();
 
   public constructor(renderer: IRenderer, name: string = FoxgloveSceneEntities.extensionId) {
     super(name, renderer);
@@ -109,6 +113,15 @@ export class FoxgloveSceneEntities extends SceneExtension<TopicEntities> {
     renderFrameId: string,
     fixedFrameId: string,
   ): void {
+    if (this.#pendingEntityUpdates.size > 0) {
+      for (const [topic, entityMap] of this.#pendingEntityUpdates) {
+        const topicEntities = this.renderables.get(topic) ?? this.#getTopicEntities(topic);
+        for (const { entity, receiveTime } of entityMap.values()) {
+          topicEntities.addOrUpdateEntity(entity, receiveTime);
+        }
+      }
+      this.#pendingEntityUpdates.clear();
+    }
     // Don't use SceneExtension#startFrame() because our renderables represent one topic each with
     // many entities. Instead, call startFrame on each renderable
     for (const renderable of this.renderables.values()) {
@@ -156,13 +169,18 @@ export class FoxgloveSceneEntities extends SceneExtension<TopicEntities> {
       }
     }
 
-    for (const entityMsg of sceneUpdates.entities ?? []) {
-      if (entityMsg) {
+    if (sceneUpdates.entities && sceneUpdates.entities.length > 0) {
+      let topicPending = this.#pendingEntityUpdates.get(topic);
+      if (!topicPending) {
+        topicPending = new Map();
+        this.#pendingEntityUpdates.set(topic, topicPending);
+      }
+      for (const entityMsg of sceneUpdates.entities) {
+        if (!entityMsg) {
+          continue;
+        }
         const entity = normalizeSceneEntity(entityMsg);
-        this.#getTopicEntities(topic).addOrUpdateEntity(
-          entity,
-          toNanoSec(messageEvent.receiveTime),
-        );
+        topicPending.set(entity.id, { entity, receiveTime: toNanoSec(messageEvent.receiveTime) });
       }
     }
   };
