@@ -20,6 +20,27 @@ export function SRGBToLinear(c: number): number {
   return c < 0.04045 ? c * 0.0773993808 : Math.pow(c * 0.9478672986 + 0.0521327014, 2.4);
 }
 
+export function SRGBToLinearFast(c: number): number {
+  if (c < 0.04045) {
+    return c * 0.0773993808;
+  }
+  const v = c * 0.9478672986 + 0.0521327014;
+  return v * v * Math.sqrt(v); // v^(2.5) =~ v^2.4
+}
+
+const LUT_SIZE = 1024;
+const SRGBToLinearLUTArray = new Float32Array(LUT_SIZE);
+for (let i = 0; i < LUT_SIZE; i++) {
+  const c = i / (LUT_SIZE - 1);
+  SRGBToLinearLUTArray[i] =
+    c < 0.04045 ? c * 0.0773993808 : Math.pow(c * 0.9478672986 + 0.0521327014, 2.4);
+}
+
+export function SRGBToLinearLUT(c: number): number {
+  const index = Math.min(LUT_SIZE - 1, Math.max(0, Math.round(c * (LUT_SIZE - 1))));
+  return SRGBToLinearLUTArray[index]!;
+}
+
 export function stringToRgba(output: ColorRGBA, colorStr: string): ColorRGBA {
   const color = tinycolor(colorStr);
   if (!color.isValid()) {
