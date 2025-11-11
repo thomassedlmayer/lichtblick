@@ -280,7 +280,7 @@ function normalizeLinePrimitive(line: PartialMessage<LinePrimitive> | undefined)
   };
 }
 
-function normalizeTriangleListPrimitive(
+/* function normalizeTriangleListPrimitive(
   triangles: PartialMessage<TriangleListPrimitive> | undefined,
 ): TriangleListPrimitive {
   return {
@@ -290,6 +290,35 @@ function normalizeTriangleListPrimitive(
     colors: normalizeColorRGBAs(triangles?.colors),
     indices: triangles?.indices?.map((idx) => idx ?? NaN) ?? [],
   };
+} */
+
+const normalizedCache = new WeakMap<PartialMessage<TriangleListPrimitive>, TriangleListPrimitive>();
+function normalizeTriangleListPrimitive(
+  triangles: PartialMessage<TriangleListPrimitive> | undefined,
+): TriangleListPrimitive {
+  if (!triangles) {
+    return {
+      pose: normalizePose(undefined),
+      points: [],
+      color: normalizeColorRGBA(undefined),
+      colors: [],
+      indices: [],
+    };
+  }
+  const cached = normalizedCache.get(triangles);
+  if (cached) {
+    return cached;
+  }
+
+  const normalized = {
+    pose: normalizePose(triangles.pose),
+    points: triangles.points?.map(normalizeVector3) ?? [],
+    color: normalizeColorRGBA(triangles.color),
+    colors: normalizeColorRGBAs(triangles.colors),
+    indices: triangles.indices?.map((idx) => idx ?? NaN) ?? [],
+  };
+  normalizedCache.set(triangles, normalized);
+  return normalized;
 }
 
 function normalizeTextPrimitive(text: PartialMessage<TextPrimitive> | undefined): TextPrimitive {
