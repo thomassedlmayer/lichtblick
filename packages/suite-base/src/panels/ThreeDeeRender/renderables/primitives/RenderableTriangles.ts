@@ -187,14 +187,8 @@ export class RenderableTriangles extends RenderablePrimitive {
           geometry.index = new THREE.BufferAttribute(array, 1);
         } else {
           const array = geometry.index.array as Uint32Array;
-          let needsUpdate = false;
-          for (let i = 0; i < indices.length; i++) {
-            if (array[i] !== indices[i]) {
-              array[i] = indices[i]!;
-              needsUpdate = true;
-            }
-          }
-          geometry.index.needsUpdate = needsUpdate;
+          array.set(indices);
+          geometry.index.needsUpdate = true;
         }
 
         // this is set in `geometry.resize` to itemCount
