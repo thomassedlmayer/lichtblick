@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (C) 2023-2025 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
+// SPDX-FileCopyrightText: Copyright (C) 2023-2026 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
 // SPDX-License-Identifier: MPL-2.0
 
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -27,6 +27,7 @@ import {
 } from "@lichtblick/suite-base/hooks/useGlobalVariables";
 import {
   MessageBlock,
+  PlayerAlert,
   PlayerState,
   Topic as PlayerTopic,
 } from "@lichtblick/suite-base/players/types";
@@ -74,7 +75,10 @@ type BuildRenderStateFn = (input: BuilderRenderStateInput) => Immutable<RenderSt
  * @returns a function that accepts render state input and returns a new RenderState to render or
  * undefined if there's no update for rendering
  */
-function initRenderStateBuilder(): BuildRenderStateFn {
+function initRenderStateBuilder(args?: {
+  emitAlert?: (id: string, alert: PlayerAlert) => void;
+}): BuildRenderStateFn {
+  const emitAlert = args?.emitAlert;
   let prevVariables: Immutable<GlobalVariables> = EMPTY_GLOBAL_VARIABLES;
   let prevBlocks: undefined | Immutable<(undefined | MessageBlock)[]>;
   let prevSeekTime: number | undefined;
@@ -246,6 +250,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
               topicSchemaConverters,
               postProcessedFrame,
+              emitAlert,
               { ...globalVariables } as Readonly<GlobalVariables>,
             );
           }
@@ -264,6 +269,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
               newConverters,
               postProcessedFrame,
+              emitAlert,
               { ...globalVariables } as Readonly<GlobalVariables>,
             );
           }
@@ -281,6 +287,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
               topicSchemaConverters,
               postProcessedFrame,
+              emitAlert,
               { ...globalVariables } as Readonly<GlobalVariables>,
             );
           }
@@ -338,6 +345,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
                   { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
                   topicSchemaConverters,
                   frames,
+                  emitAlert,
                 );
               }
             },

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (C) 2023-2025 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
+// SPDX-FileCopyrightText: Copyright (C) 2023-2026 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
 // SPDX-License-Identifier: MPL-2.0
 
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -828,6 +828,23 @@ export default class UserScriptPlayer implements Player {
     }
 
     return lib;
+  }
+
+  public addAlert(id: string, alert: PlayerAlert): void {
+    // Store/replace alert by id
+    this.#alertStore.set(id, alert);
+
+    // Emit updated player state so UI sees it
+    void this.#queueEmitState();
+  }
+
+  public removeAlert(id: string): void {
+    const didDelete = this.#alertStore.delete(id);
+
+    // Only emit if something actually changed
+    if (didDelete) {
+      void this.#queueEmitState();
+    }
   }
 
   // invoked when our child player state changes

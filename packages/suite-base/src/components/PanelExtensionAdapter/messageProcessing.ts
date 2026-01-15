@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (C) 2023-2025 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
+// SPDX-FileCopyrightText: Copyright (C) 2023-2026 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
 // SPDX-License-Identifier: MPL-2.0
 
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -15,7 +15,7 @@ import {
   Subscription,
 } from "@lichtblick/suite";
 import { GlobalVariables } from "@lichtblick/suite-base/hooks/useGlobalVariables";
-import { Topic as PlayerTopic } from "@lichtblick/suite-base/players/types";
+import { PlayerAlert, Topic as PlayerTopic } from "@lichtblick/suite-base/players/types";
 import { Namespace } from "@lichtblick/suite-base/types";
 
 // Branded string to ensure that users go through the `converterKey` function to compute a lookup key
@@ -43,29 +43,40 @@ export function convertMessage(
   messageEvent: Immutable<MessageEvent>,
   converters: Immutable<TopicSchemaConverterMap>,
   convertedMessages: MessageEvent[],
+  emitAlert?: (id: string, alert: PlayerAlert) => void,
   globalVariables?: Readonly<GlobalVariables>,
 ): void {
   const key = converterKey(messageEvent.topic, messageEvent.schemaName);
   const matchedConverters = converters.get(key);
   for (const converter of matchedConverters ?? []) {
-    const convertedMessage = converter.converter(
-      messageEvent.message,
-      messageEvent,
-      globalVariables,
-    );
-    // If the converter returns _undefined_ or _null_ the message is skipped
-    if (convertedMessage == undefined) {
-      continue;
+    try {
+      const convertedMessage = converter.converter(
+        messageEvent.message,
+        messageEvent,
+        globalVariables,
+      );
+      // If the converter returns _undefined_ or _null_ the message is skipped
+      if (convertedMessage == undefined) {
+        continue;
+      }
+      convertedMessages.push({
+        topic: messageEvent.topic,
+        schemaName: converter.toSchemaName,
+        receiveTime: messageEvent.receiveTime,
+        message: convertedMessage,
+        originalMessageEvent: messageEvent,
+        sizeInBytes: messageEvent.sizeInBytes,
+        topicConfig: messageEvent.topicConfig,
+      });
+    } catch (e) {
+      if (emitAlert != undefined) {
+        emitAlert(`messageConverterError-${key}`, {
+          severity: "error",
+          message: `Error in message converter ${key}`,
+          error: e,
+        });
+      }
     }
-    convertedMessages.push({
-      topic: messageEvent.topic,
-      schemaName: converter.toSchemaName,
-      receiveTime: messageEvent.receiveTime,
-      message: convertedMessage,
-      originalMessageEvent: messageEvent,
-      sizeInBytes: messageEvent.sizeInBytes,
-      topicConfig: messageEvent.topicConfig,
-    });
   }
 }
 

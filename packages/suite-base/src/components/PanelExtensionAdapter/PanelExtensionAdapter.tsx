@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (C) 2023-2025 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
+// SPDX-FileCopyrightText: Copyright (C) 2023-2026 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
 // SPDX-License-Identifier: MPL-2.0
 
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -133,6 +133,7 @@ function PanelExtensionAdapter(
     sortedTopics,
     sortedServices,
     getBatchIterator,
+    addPlayerAlert,
   } = messagePipelineContext;
 
   const { capabilities, profile: dataSourceProfile, presence: playerPresence } = playerState;
@@ -184,7 +185,11 @@ function PanelExtensionAdapter(
 
   // initRenderStateBuilder render produces a function which computes the latest render state from a set of inputs
   // Spiritually its like a reducer
-  const [buildRenderState, setBuildRenderState] = useState(() => initRenderStateBuilder());
+  const [buildRenderState, setBuildRenderState] = useState(() =>
+    initRenderStateBuilder({
+      emitAlert: messagePipelineContext.addPlayerAlert,
+    }),
+  );
 
   const [sharedPanelState, setSharedPanelState] = useSharedPanelState();
 
@@ -664,7 +669,11 @@ function PanelExtensionAdapter(
     renderingRef.current = false;
     setSlowRender(false);
 
-    setBuildRenderState(() => initRenderStateBuilder());
+    setBuildRenderState(() =>
+      initRenderStateBuilder({
+        emitAlert: addPlayerAlert,
+      }),
+    );
 
     const panelElement = document.createElement("div");
     panelElement.style.width = "100%";
@@ -700,6 +709,7 @@ function PanelExtensionAdapter(
     getMessagePipelineContext,
     configTooNew,
     playerIsInitializing,
+    addPlayerAlert,
   ]);
 
   const style: CSSProperties = {};

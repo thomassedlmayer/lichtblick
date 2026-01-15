@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (C) 2023-2025 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
+// SPDX-FileCopyrightText: Copyright (C) 2023-2026 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
 // SPDX-License-Identifier: MPL-2.0
 
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -33,6 +33,7 @@ import { PLAYER_CAPABILITIES } from "@lichtblick/suite-base/players/constants";
 import {
   AdvertiseOptions,
   Player,
+  PlayerAlert,
   PlayerMetricsCollectorInterface,
   PlayerPresence,
   PlayerState,
@@ -419,6 +420,17 @@ export class IterablePlayer implements Player {
 
   public getMetadata(): ReadonlyArray<Readonly<Metadata>> {
     return this.#metadata;
+  }
+
+  public addAlert(id: string, alert: PlayerAlert): void {
+    this.#alertManager.addAlert(id, alert);
+    this.#queueEmitState(); // important so UI updates
+  }
+
+  public removeAlert(id: string): void {
+    if (this.#alertManager.removeAlert(id)) {
+      this.#queueEmitState();
+    }
   }
 
   /** Request the state to switch to newState */
