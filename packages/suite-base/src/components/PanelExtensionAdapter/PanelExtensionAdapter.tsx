@@ -33,6 +33,7 @@ import {
 } from "@lichtblick/suite-base/components/MessagePipeline";
 import { usePanelContext } from "@lichtblick/suite-base/components/PanelContext";
 import PanelToolbar from "@lichtblick/suite-base/components/PanelToolbar";
+import { useAlertsActions } from "@lichtblick/suite-base/context/AlertsContext";
 import { useAppConfiguration } from "@lichtblick/suite-base/context/AppConfigurationContext";
 import {
   ExtensionCatalog,
@@ -60,6 +61,7 @@ import { assertNever } from "@lichtblick/suite-base/util/assertNever";
 import { maybeCast } from "@lichtblick/suite-base/util/maybeCast";
 
 import { PanelConfigVersionError } from "./PanelConfigVersionError";
+import { MessageConverterAlertHandler } from "./messageProcessing";
 import { createMessageRangeIterator } from "./messageRangeIterator";
 import { RenderStateConfig, initRenderStateBuilder } from "./renderState";
 import { BuiltinPanelExtensionContext } from "./types";
@@ -155,6 +157,7 @@ function PanelExtensionAdapter(
 
   const [slowRender, setSlowRender] = useState(false);
   const [, setDefaultPanelTitle] = useDefaultPanelTitle();
+  const { setAlert } = useAlertsActions();
 
   const { globalVariables, setGlobalVariables } = useGlobalVariables();
 
@@ -187,6 +190,16 @@ function PanelExtensionAdapter(
   const [buildRenderState, setBuildRenderState] = useState(() => initRenderStateBuilder());
 
   const [sharedPanelState, setSharedPanelState] = useSharedPanelState();
+  const emitMessageConverterAlert = useMemo<MessageConverterAlertHandler>(
+    () => (converter, alert, alertId) => {
+      const converterTag = `message-converter:${converter.extensionId ?? "unknown"}:${
+        converter.fromSchemaName
+      }->${converter.toSchemaName}`;
+      const tag = alertId ? `${converterTag}:${alertId}` : converterTag;
+      setAlert(tag, alert);
+    },
+    [setAlert],
+  );
 
   // Register handlers to update the app settings we subscribe to
   useEffect(() => {
@@ -245,6 +258,7 @@ function PanelExtensionAdapter(
       appSettings,
       colorScheme,
       currentFrame: messageEvents,
+      emitAlert: emitMessageConverterAlert,
       globalVariables,
       hoverValue,
       messageConverters,
@@ -292,6 +306,7 @@ function PanelExtensionAdapter(
     appSettings,
     buildRenderState,
     colorScheme,
+    emitMessageConverterAlert,
     globalVariables,
     hoverValue,
     localSubscriptions,
@@ -586,6 +601,7 @@ function PanelExtensionAdapter(
           rawBatchIterator,
           sortedTopics,
           messageConverters: messageConverters ?? [],
+          emitAlert: emitMessageConverterAlert,
         });
 
         // Call the callback with the processed iterable
@@ -622,6 +638,7 @@ function PanelExtensionAdapter(
     updatePanelSettingsTree,
     setDefaultPanelTitle,
     setMessagePathDropConfig,
+    emitMessageConverterAlert,
   ]);
 
   const panelContainerRef = useRef<HTMLDivElement>(ReactNull);

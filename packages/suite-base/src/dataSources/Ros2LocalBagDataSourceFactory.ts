@@ -49,6 +49,7 @@ class Ros2LocalBagDataSourceFactory implements IDataSourceFactory {
       name,
       sourceId: this.id,
       readAheadDuration: { sec: 120, nsec: 0 },
+      schemaDefinitionsByName: args.schemaDefinitionsByName,
     });
   }
 }

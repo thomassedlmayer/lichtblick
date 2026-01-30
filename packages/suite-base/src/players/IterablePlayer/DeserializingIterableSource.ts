@@ -8,7 +8,7 @@
 import { pickFields } from "@lichtblick/den/records";
 import Logger from "@lichtblick/log";
 import { parseChannel } from "@lichtblick/mcap-support";
-import { MessageEvent } from "@lichtblick/suite";
+import { MessageEvent, SchemaDefinition } from "@lichtblick/suite";
 import {
   MessageIteratorArgs,
   IteratorResult,
@@ -38,11 +38,16 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
   #deserializersByTopic: Record<string, (data: ArrayBufferView) => unknown> = {};
   #messageSizeEstimateBySubHash: Record<string, number> = {};
   #connectionIdByTopic: Record<string, number> = {};
+  #schemaDefinitionsByName?: Map<string, SchemaDefinition>;
 
   public readonly sourceType = "deserialized";
 
-  public constructor(source: IIterableSource<Uint8Array>) {
+  public constructor(
+    source: IIterableSource<Uint8Array>,
+    schemaDefinitionsByName?: Map<string, SchemaDefinition>,
+  ) {
     this.#source = source;
+    this.#schemaDefinitionsByName = schemaDefinitionsByName;
   }
 
   public async initialize(): Promise<Initialization> {
@@ -68,12 +73,30 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
             throw new Error(`Unspecified message encoding for topic ${topic}`);
           }
 
+          let resolvedSchemaData = schemaData;
+          let resolvedSchemaEncoding = schemaEncoding;
+
+          if (schemaName != undefined) {
+            const registrySchema = this.#schemaDefinitionsByName?.get(schemaName);
+            if (registrySchema) {
+              resolvedSchemaEncoding ??= registrySchema.encoding;
+              if (
+                resolvedSchemaData == undefined &&
+                resolvedSchemaEncoding === registrySchema.encoding
+              ) {
+                resolvedSchemaData = registrySchema.data;
+              }
+            }
+          }
+
           const schema =
-            schemaName != undefined && schemaData != undefined && schemaEncoding != undefined
+            schemaName != undefined &&
+            resolvedSchemaData != undefined &&
+            resolvedSchemaEncoding != undefined
               ? {
                   name: schemaName,
-                  encoding: schemaEncoding,
-                  data: schemaData,
+                  encoding: resolvedSchemaEncoding,
+                  data: resolvedSchemaData,
                 }
               : undefined;
 
