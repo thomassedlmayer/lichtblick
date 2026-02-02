@@ -706,6 +706,7 @@ export class IterablePlayer implements Player {
 
     // set the playIterator to the seek time
     await this.#bufferImpl.stopProducer();
+    this.#lastStamp = undefined;
 
     log.debug("Initializing forward iterator from", next);
     this.#playbackIterator = this.#bufferedSource.messageIterator({
@@ -791,7 +792,9 @@ export class IterablePlayer implements Player {
         }
 
         if (iterResult.type === "stamp" && compare(iterResult.stamp, stopTime) >= 0) {
-          this.#lastStamp = iterResult.stamp;
+          if (!this.#lastStamp || compare(iterResult.stamp, this.#lastStamp) > 0) {
+            this.#lastStamp = iterResult.stamp;
+          }
           break;
         }
 
@@ -1005,9 +1008,6 @@ export class IterablePlayer implements Player {
         this.#currentTime = end;
         this.#messages = [];
         this.#queueEmitState();
-        // Clear lastStamp so we don't repeatedly short-circuit on the same stamp.
-        this.#lastStamp = undefined;
-
         if (this.#untilTime && compare(this.#currentTime, this.#untilTime) >= 0) {
           this.pausePlayback();
         }
@@ -1068,7 +1068,10 @@ export class IterablePlayer implements Player {
         }
 
         if (iterResult.type === "stamp" && compare(iterResult.stamp, end) >= 0) {
-          this.#lastStamp = iterResult.stamp;
+          // Monotonic guard; Don't store stamp between ticks if seeked backwards
+          if (!this.#lastStamp || compare(iterResult.stamp, this.#lastStamp) > 0) {
+            this.#lastStamp = iterResult.stamp;
+          }
           break;
         }
 
