@@ -94,6 +94,17 @@ export type Subscription = {
    * **Only** topics with `preload: true` are available in the `allFrames` render state.
    */
   preload?: boolean;
+
+  /**
+   * Optional sampling policy for message delivery.
+   * If not specified, all messages are delivered.
+   *
+   * `latest-per-render-tick` delivers at most the latest message per topic per render tick.
+   * This can reduce decoding work for high-rate topics when only the latest value is needed.
+   */
+  sampling?: {
+    mode: "latest-per-render-tick";
+  };
 };
 
 /**
@@ -544,10 +555,7 @@ export type MessageConverterAlert = {
   tip?: string;
 };
 
-export type MessageConverterEmitAlert = (
-  alert: MessageConverterAlert,
-  alertId?: string,
-) => void;
+export type MessageConverterEmitAlert = (alert: MessageConverterAlert, alertId?: string) => void;
 
 export type MessageConverterContext = {
   emitAlert: MessageConverterEmitAlert;

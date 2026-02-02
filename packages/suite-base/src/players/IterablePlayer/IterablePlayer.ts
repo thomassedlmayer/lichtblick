@@ -185,6 +185,7 @@ export class IterablePlayer implements Player {
   #bufferedSource: IDeserializedIterableSource;
   // Buffering source implementation. We store a reference to it here so we can access buffer information such as loaded ranges & memory size.
   #bufferImpl: BufferedIterableSource;
+  #deserializingSource?: DeserializingIterableSource;
 
   // Some states register an abort controller to signal they should abort
   #abort?: AbortController;
@@ -197,6 +198,7 @@ export class IterablePlayer implements Player {
 
   #messageRangeSource?: IDeserializedIterableSource;
   #schemaDefinitionsByName?: Map<string, SchemaDefinition>;
+  #samplingEnabled: boolean = false;
 
   #queueEmitState: ReturnType<typeof debouncePromise>;
 
@@ -235,10 +237,11 @@ export class IterablePlayer implements Player {
         maxCacheSizeBytes: 300 * MEGABYTE_IN_BYTES, // 300mb
       });
       this.#bufferImpl = bufferInterface;
-      this.#bufferedSource = new DeserializingIterableSource(
+      this.#deserializingSource = new DeserializingIterableSource(
         bufferInterface,
         this.#schemaDefinitionsByName,
       );
+      this.#bufferedSource = this.#deserializingSource;
     }
 
     this.#name = name;
@@ -357,6 +360,12 @@ export class IterablePlayer implements Player {
   public setSubscriptions(newSubscriptions: SubscribePayload[]): void {
     log.debug("set subscriptions", newSubscriptions);
     this.#subscriptions = newSubscriptions;
+    this.#samplingEnabled = this.#subscriptions.some(
+      (subscription) => subscription.sampling?.mode === "latest-per-render-tick",
+    );
+    if (!this.#samplingEnabled) {
+      this.#deserializingSource?.setSamplingWindowEnd(undefined);
+    }
 
     const allTopics: TopicSelection = new Map(
       this.#subscriptions.map((subscription) => [subscription.topic, subscription]),
@@ -734,6 +743,9 @@ export class IterablePlayer implements Player {
       this.#start,
       this.#end,
     );
+    if (this.#samplingEnabled) {
+      this.#deserializingSource?.setSamplingWindowEnd(stopTime);
+    }
 
     log.debug(`Playing from ${toString(this.#start)} to ${toString(stopTime)}`);
 
@@ -974,6 +986,9 @@ export class IterablePlayer implements Player {
     // The end time is inclusive.
     const targetTime = add(this.#currentTime, fromMillis(rangeMillis));
     const end: Time = clampTime(targetTime, this.#start, this.#untilTime ?? this.#end);
+    if (this.#samplingEnabled) {
+      this.#deserializingSource?.setSamplingWindowEnd(end);
+    }
 
     // If a lastStamp is available from the previous tick we check the stamp against our current
     // tick's end time. If this stamp is after our current tick's end time then we don't need to
@@ -990,6 +1005,8 @@ export class IterablePlayer implements Player {
         this.#currentTime = end;
         this.#messages = [];
         this.#queueEmitState();
+        // Clear lastStamp so we don't repeatedly short-circuit on the same stamp.
+        this.#lastStamp = undefined;
 
         if (this.#untilTime && compare(this.#currentTime, this.#untilTime) >= 0) {
           this.pausePlayback();

@@ -461,6 +461,7 @@ function PanelExtensionAdapter(
           return {
             topic: item.topic,
             preloadType: item.preload === true ? "full" : "partial",
+            sampling: item.sampling,
           };
         });
 
