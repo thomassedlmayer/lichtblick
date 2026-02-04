@@ -430,6 +430,10 @@ export type PanelExtensionContext = {
    * an empty array will unsubscribe from all topics.
    *
    * Calling subscribe with an empty array is analagous to unsubscribeAll.
+   *
+   * Note: sampling requests are treated as a best-effort hint. Sampling is only enabled when all
+   * consumers for a topic allow it (including any message converters), and is disabled when
+   * `preload: true` or when converters do not explicitly support latest-per-render-tick sampling.
    */
   subscribe(subscriptions: Subscription[]): void;
 
@@ -559,12 +563,17 @@ export type MessageConverterEmitAlert = (alert: MessageConverterAlert, alertId?:
 
 export type MessageConverterContext = {
   emitAlert: MessageConverterEmitAlert;
-  isFrameRendered: boolean;
 };
 
 export type RegisterMessageConverterArgs<Src> = {
   fromSchemaName: string;
   toSchemaName: string;
+  /**
+   * Indicates whether this converter is safe to run when messages are sampled to
+   * only the latest-per-render-tick. If false or unset, the converter is treated
+   * as needing all messages.
+   */
+  supportsLatestPerRenderTick?: boolean;
   converter: (
     msg: Src,
     event: Immutable<MessageEvent<Src>>,

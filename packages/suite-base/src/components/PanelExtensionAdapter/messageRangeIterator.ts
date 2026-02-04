@@ -73,7 +73,6 @@ export function createMessageRangeIterator(params: CreateMessageRangeIteratorPar
           if (topicSchemaConverters.size > 0) {
             convertMessage(msgEvent, topicSchemaConverters, batchMessages, undefined, {
               emitAlert,
-              isFrameRendered: false,
             });
           }
 

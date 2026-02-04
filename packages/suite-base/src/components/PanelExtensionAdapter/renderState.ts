@@ -250,7 +250,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               topicSchemaConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
-              { emitAlert, isFrameRendered: true },
+              { emitAlert },
             );
           }
           lastMessageByTopic.set(messageEvent.topic, messageEvent);
@@ -269,7 +269,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               newConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
-              { emitAlert, isFrameRendered: true },
+              { emitAlert },
             );
           }
         }
@@ -287,7 +287,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               topicSchemaConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
-              { emitAlert, isFrameRendered: true },
+              { emitAlert },
             );
           }
         }
@@ -345,7 +345,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
                   topicSchemaConverters,
                   frames,
                   undefined,
-                  { emitAlert, isFrameRendered: false },
+                  { emitAlert },
                 );
               }
             },

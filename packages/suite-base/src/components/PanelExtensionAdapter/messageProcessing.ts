@@ -21,7 +21,7 @@ import { Topic as PlayerTopic } from "@lichtblick/suite-base/players/types";
 import { Namespace } from "@lichtblick/suite-base/types";
 
 // Branded string to ensure that users go through the `converterKey` function to compute a lookup key
-type ConverterKey = Opaque<string, "ConverterKey">;
+export type ConverterKey = Opaque<string, "ConverterKey">;
 
 type MessageConverter = RegisterMessageConverterArgs<unknown> & {
   extensionNamespace?: Namespace;
@@ -38,7 +38,6 @@ export type MessageConverterAlertHandler = (
 
 type ConvertMessageContext = {
   emitAlert?: MessageConverterAlertHandler;
-  isFrameRendered?: boolean;
 };
 
 // Create a string lookup key from a message event
@@ -68,7 +67,6 @@ export function convertMessage(
     };
     const converterContext: MessageConverterContext = {
       emitAlert,
-      isFrameRendered: context?.isFrameRendered ?? true,
     };
     const convertedMessage = converter.converter(
       messageEvent.message,
