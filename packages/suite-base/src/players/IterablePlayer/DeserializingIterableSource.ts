@@ -40,6 +40,7 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
   #messageSizeEstimateBySubHash: Record<string, number> = {};
   #connectionIdByTopic: Record<string, number> = {};
   #schemaDefinitionsByName?: Map<string, SchemaDefinition>;
+  #failedTopics = new Set<string>();
   #samplingWindowEnd: MessageIteratorArgs["end"];
 
   public readonly sourceType = "deserialized";
@@ -74,24 +75,30 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
       this.#connectionIdByTopic[topic] = nextConnectionId++;
 
       if (this.#deserializersByTopic[topic] == undefined) {
+        let usedRegistrySchema = false;
+        let resolvedSchemaEncoding: string | undefined;
+        let resolvedSchemaData: Uint8Array | undefined;
         try {
           if (messageEncoding == undefined) {
             throw new Error(`Unspecified message encoding for topic ${topic}`);
           }
 
-          let resolvedSchemaData = schemaData;
-          let resolvedSchemaEncoding = schemaEncoding;
+          resolvedSchemaData = schemaData;
+          resolvedSchemaEncoding = schemaEncoding;
 
           if (schemaName != undefined) {
             const registrySchema = this.#schemaDefinitionsByName?.get(schemaName);
-            if (registrySchema) {
-              resolvedSchemaEncoding ??= registrySchema.encoding;
-              if (
-                resolvedSchemaData == undefined &&
-                resolvedSchemaEncoding === registrySchema.encoding
-              ) {
-                resolvedSchemaData = registrySchema.data;
-              }
+            if (registrySchema != undefined) {
+              // Prefer the registered schema definition (e.g. from converters) over MCAP-contained schema
+              resolvedSchemaEncoding = registrySchema.encoding;
+              resolvedSchemaData = registrySchema.data;
+              usedRegistrySchema = true;
+            } else if (this.#schemaDefinitionsByName != undefined) {
+              log.info("No registered schema definition found for topic schema", {
+                topic,
+                schemaName,
+                registeredSchemaNames: Array.from(this.#schemaDefinitionsByName.keys()),
+              });
             }
           }
 
@@ -106,17 +113,59 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
                 }
               : undefined;
 
+          if (schemaName != undefined) {
+            if (usedRegistrySchema) {
+              log.info("Using registered schema definition for topic", {
+                topic,
+                schemaName,
+                schemaEncoding: resolvedSchemaEncoding,
+                hasSchemaData: resolvedSchemaData != undefined,
+                mcapSchemaEncoding: schemaEncoding,
+                mcapHasSchemaData: schemaData != undefined,
+                note:
+                  schemaEncoding != undefined || schemaData != undefined
+                    ? "Registered schema definition prioritized over MCAP."
+                    : "Registered schema definition used (no MCAP schema provided).",
+              });
+            } else if (schemaData != undefined || schemaEncoding != undefined) {
+              log.info("Using MCAP schema definition for topic", {
+                topic,
+                schemaName,
+                schemaEncoding,
+                hasSchemaData: schemaData != undefined,
+              });
+            }
+          }
+
           const { deserialize } = parseChannel({
             messageEncoding,
             schema,
           });
           this.#deserializersByTopic[topic] = deserialize;
         } catch (error) {
+          if (schemaName != undefined && usedRegistrySchema) {
+            log.error(
+              "Failed to use registered schema definition for topic; falling back is disabled",
+              {
+                topic,
+                schemaName,
+                schemaEncoding: resolvedSchemaEncoding,
+                hasSchemaData: resolvedSchemaData != undefined,
+              },
+              error,
+            );
+          }
+          this.#failedTopics.add(topic);
           // This should in practice never happen as the underlying source filters out invalid topics
           alerts.push({
             severity: "error",
-            message: `Error in topic ${topic}: ${error.message}`,
-            error,
+            message: `Error in topic ${topic}`,
+            error:
+              schemaName != undefined && usedRegistrySchema
+                ? new Error(
+                    `Registered schema definition for ${schemaName} is incompatible or invalid. ${error.message}`,
+                  )
+                : error,
           });
         }
       }
@@ -168,6 +217,9 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
                   `Received message on topic ${iterResult.msgEvent.topic} which was not subscribed to.`,
                 );
               }
+              if (self.#failedTopics.has(iterResult.msgEvent.topic)) {
+                continue;
+              }
 
               const deserializedMsgEvent = self.#deserializeMessage(
                 iterResult.msgEvent,
@@ -218,6 +270,9 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
               const subscription = subscribePayloadWithHashByTopic.get(topic);
               if (!subscription) {
                 throw new Error(`Received message on topic ${topic} which was not subscribed to.`);
+              }
+              if (self.#failedTopics.has(topic)) {
+                continue;
               }
               decoded.push(self.#deserializeMessage(rawMsgEvent, subscription));
             } catch (err) {
@@ -283,6 +338,9 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
                   `Received message on topic ${iterResult.msgEvent.topic} which was not subscribed to.`,
                 );
               }
+              if (self.#failedTopics.has(iterResult.msgEvent.topic)) {
+                continue;
+              }
 
               const deserializedMsgEvent = self.#deserializeMessage(
                 iterResult.msgEvent,
@@ -310,10 +368,7 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
           }
 
           // If we have reached beyond the sampling window end, flush pending and yield a stamp.
-          const samplingWindowCompare = compare(
-            iterResult.msgEvent.receiveTime,
-            samplingWindowEnd,
-          );
+          const samplingWindowCompare = compare(iterResult.msgEvent.receiveTime, samplingWindowEnd);
           if (samplingWindowCompare > 0) {
             yield* flushPending();
             carryOver = iterResult;
@@ -337,6 +392,9 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
               throw new Error(
                 `Received message on topic ${iterResult.msgEvent.topic} which was not subscribed to.`,
               );
+            }
+            if (self.#failedTopics.has(iterResult.msgEvent.topic)) {
+              continue;
             }
             bufferedDecoded.push(self.#deserializeMessage(iterResult.msgEvent, subscription));
           } catch (err) {
@@ -383,6 +441,9 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
         const subscription = subscribePayloadWithHashByTopic.get(rawMsg.topic);
         if (!subscription) {
           throw new Error(`Received message on topic ${rawMsg.topic} which was not subscribed to.`);
+        }
+        if (this.#failedTopics.has(rawMsg.topic)) {
+          continue;
         }
         deserializedMsgs.push(this.#deserializeMessage(rawMsg, subscription));
       } catch (err) {
