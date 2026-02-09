@@ -62,7 +62,10 @@ export function parseProtobufSchema(
   fixTimeType(root.lookup(".google.protobuf.Duration"));
 
   const deserialize = (data: ArrayBufferView) => {
-    return rootType.decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+    return rootType.toObject(
+      rootType.decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength)),
+      { defaults: true },
+    );
   };
 
   const datatypes: MessageDefinitionMap = new Map();
