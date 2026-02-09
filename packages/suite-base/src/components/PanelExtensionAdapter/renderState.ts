@@ -37,6 +37,7 @@ import {
   convertMessage,
   forEachSortedArrays,
   mapDifference,
+  MessageConverterAlertHandler,
   TopicSchemaConversions,
 } from "./messageProcessing";
 
@@ -50,6 +51,7 @@ export type BuilderRenderStateInput = Immutable<{
   appSettings: Map<string, AppSettingValue> | undefined;
   colorScheme: RenderState["colorScheme"] | undefined;
   currentFrame: MessageEvent[] | undefined;
+  emitAlert?: MessageConverterAlertHandler;
   globalVariables: GlobalVariables;
   hoverValue: HoverValue | undefined;
   messageConverters?: readonly RegisterMessageConverterArgs<unknown>[];
@@ -109,6 +111,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
       appSettings,
       colorScheme,
       currentFrame,
+      emitAlert,
       globalVariables,
       hoverValue,
       messageConverters,
@@ -247,6 +250,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               topicSchemaConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
+              { emitAlert },
             );
           }
           lastMessageByTopic.set(messageEvent.topic, messageEvent);
@@ -265,6 +269,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               newConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
+              { emitAlert },
             );
           }
         }
@@ -282,6 +287,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               topicSchemaConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
+              { emitAlert },
             );
           }
         }
@@ -338,6 +344,8 @@ function initRenderStateBuilder(): BuildRenderStateFn {
                   { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
                   topicSchemaConverters,
                   frames,
+                  undefined,
+                  { emitAlert },
                 );
               }
             },
