@@ -22,7 +22,13 @@ import {
   toRFC3339String,
   toString,
 } from "@lichtblick/rostime";
-import { Immutable, MessageEvent, Metadata, ParameterValue } from "@lichtblick/suite";
+import {
+  Immutable,
+  MessageEvent,
+  Metadata,
+  ParameterValue,
+  SchemaDefinition,
+} from "@lichtblick/suite";
 import { DeserializedSourceWrapper } from "@lichtblick/suite-base/players/IterablePlayer/DeserializedSourceWrapper";
 import { DeserializingIterableSource } from "@lichtblick/suite-base/players/IterablePlayer/DeserializingIterableSource";
 import { freezeMetadata } from "@lichtblick/suite-base/players/IterablePlayer/freezeMetadata";
@@ -105,6 +111,8 @@ export type IterablePlayerOptions = {
 
   // Max. time that messages will be buffered ahead for smoother playback. (default: 10sec)
   readAheadDuration?: Time;
+
+  schemaDefinitionsByName?: Map<string, SchemaDefinition>;
 };
 
 type IterablePlayerState =
@@ -188,6 +196,7 @@ export class IterablePlayer implements Player {
   #blockLoadingProcess?: Promise<void>;
 
   #messageRangeSource?: IDeserializedIterableSource;
+  #schemaDefinitionsByName?: Map<string, SchemaDefinition>;
 
   #queueEmitState: ReturnType<typeof debouncePromise>;
 
@@ -210,9 +219,12 @@ export class IterablePlayer implements Player {
       enablePreload,
       sourceId,
       readAheadDuration = { sec: 10, nsec: 0 },
+      schemaDefinitionsByName,
     } = options;
 
     this.#iterableSource = source;
+    this.#schemaDefinitionsByName = schemaDefinitionsByName;
+
     if (source.sourceType === "deserialized") {
       this.#bufferImpl = new BufferedIterableSource(source);
       this.#bufferedSource = new DeserializedSourceWrapper(this.#bufferImpl);
@@ -223,7 +235,10 @@ export class IterablePlayer implements Player {
         maxCacheSizeBytes: 300 * MEGABYTE_IN_BYTES, // 300mb
       });
       this.#bufferImpl = bufferInterface;
-      this.#bufferedSource = new DeserializingIterableSource(bufferInterface);
+      this.#bufferedSource = new DeserializingIterableSource(
+        bufferInterface,
+        this.#schemaDefinitionsByName,
+      );
     }
 
     this.#name = name;
@@ -591,7 +606,10 @@ export class IterablePlayer implements Player {
       if (this.#iterableSource.sourceType === "deserialized") {
         this.#messageRangeSource = this.#iterableSource;
       } else {
-        this.#messageRangeSource = new DeserializingIterableSource(this.#iterableSource);
+        this.#messageRangeSource = new DeserializingIterableSource(
+          this.#iterableSource,
+          this.#schemaDefinitionsByName,
+        );
         (this.#messageRangeSource as DeserializingIterableSource).initializeDeserializers(
           initResult,
         );
@@ -604,7 +622,10 @@ export class IterablePlayer implements Player {
           if (this.#iterableSource.sourceType === "deserialized") {
             blockLoaderSource = this.#iterableSource;
           } else {
-            blockLoaderSource = new DeserializingIterableSource(this.#iterableSource);
+            blockLoaderSource = new DeserializingIterableSource(
+              this.#iterableSource,
+              this.#schemaDefinitionsByName,
+            );
             // We must not call initialize() here, as the #iterableSource was already initialized above.
             blockLoaderSource.initializeDeserializers(initResult);
           }

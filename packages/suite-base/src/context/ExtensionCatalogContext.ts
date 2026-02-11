@@ -15,6 +15,7 @@ import {
   Immutable,
   PanelSettings,
   RegisterMessageConverterArgs,
+  SchemaDefinition,
 } from "@lichtblick/suite";
 import { ExtensionSettings } from "@lichtblick/suite-base/components/PanelSettings/types";
 import { TopicAliasFunctions } from "@lichtblick/suite-base/players/TopicAliasingPlayer/TopicAliasingPlayer";
@@ -89,6 +90,7 @@ export type ExtensionCatalog = Immutable<{
   installedTopicAliasFunctions: undefined | TopicAliasFunctions;
   installedCameraModels: CameraModelsMap;
   panelSettings: undefined | ExtensionSettings;
+  installedSchemaDefinitions: Map<string, SchemaDefinitionEntry>;
 }>;
 
 export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
@@ -96,9 +98,15 @@ export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
   extensionId?: string;
 };
 
+export type SchemaDefinitionEntry = SchemaDefinition & {
+  extensionNamespace?: Namespace;
+  extensionId?: string;
+};
+
 export type ContributionPoints = {
   panels: Record<string, RegisteredPanel>;
   messageConverters: MessageConverter[];
+  messageConverterSchemas: SchemaDefinitionEntry[];
   topicAliasFunctions: TopicAliasFunctions;
   panelSettings: ExtensionSettings;
   cameraModels: CameraModelsMap;

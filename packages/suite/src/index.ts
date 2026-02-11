@@ -94,6 +94,7 @@ export type Subscription = {
    * **Only** topics with `preload: true` are available in the `allFrames` render state.
    */
   preload?: boolean;
+
 };
 
 /**
@@ -531,6 +532,12 @@ export interface PanelSettings<ExtensionSettings> {
   defaultConfig?: ExtensionSettings;
 }
 
+export type SchemaDefinition = {
+  name: string;
+  encoding: string;
+  data: Uint8Array;
+};
+
 export type RegisterMessageConverterArgs<Src> = {
   fromSchemaName: string;
   toSchemaName: string;
@@ -543,6 +550,10 @@ export type RegisterMessageConverterArgs<Src> = {
    * Custom settings for the topics using the schema specified in the *toSchemaName* property
    */
   panelSettings?: Record<string, PanelSettings<unknown>>;
+  /**
+   * Optional schema definitions that can be used to decode messages for the provided schema names.
+   */
+  schemaDefinitions?: readonly SchemaDefinition[];
 };
 
 type BaseTopic = { name: string; schemaName?: string };

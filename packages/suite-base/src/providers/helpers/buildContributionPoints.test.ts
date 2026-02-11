@@ -21,6 +21,7 @@ describe("buildContributionPoints", () => {
 
     expect(result).toHaveProperty("panels", {});
     expect(result).toHaveProperty("messageConverters", []);
+    expect(result).toHaveProperty("messageConverterSchemas", []);
     expect(result).toHaveProperty("topicAliasFunctions", []);
     expect(result).toHaveProperty("panelSettings", {});
     consoleErrorMock.mockRestore();
@@ -96,6 +97,13 @@ describe("buildContributionPoints", () => {
     const messageConverter: MessageConverter = {
       fromSchemaName: BasicBuilder.string(),
       toSchemaName: BasicBuilder.string(),
+      schemaDefinitions: [
+        {
+          name: "test.Schema",
+          encoding: "protobuf",
+          data: new Uint8Array([1, 2, 3]),
+        },
+      ],
       panelSettings: {},
       extensionId: extensionInfo.id,
       converter: jest.fn(),
@@ -119,6 +127,15 @@ describe("buildContributionPoints", () => {
       extensionNamespace: extensionInfo.namespace,
       extensionId: extensionInfo.id,
     });
+    expect(result.messageConverterSchemas).toEqual([
+      {
+        name: "test.Schema",
+        encoding: "protobuf",
+        data: new Uint8Array([1, 2, 3]),
+        extensionNamespace: extensionInfo.namespace,
+        extensionId: extensionInfo.id,
+      },
+    ]);
     delete (globalThis as any).messageConverter;
   });
 
