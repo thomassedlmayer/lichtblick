@@ -193,6 +193,8 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     const rawIterator = self.#source.messageIterator(args);
+
+    // Collect all topics that will be sampled
     const samplingTopics = new Set<string>();
     for (const [topic, subscription] of subscribePayloadWithHashByTopic) {
       if (subscription.sampling?.mode === "latest-per-render-tick") {
@@ -202,7 +204,7 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
 
     return (async function* deserializedIterableGenerator() {
       try {
-        // If sampling topics exist, always use the sampling path; samplingWindowEnd can be set later.
+        // If not a single sampling topic, just use pass-through deserialization path
         if (samplingTopics.size === 0) {
           for await (const iterResult of rawIterator) {
             if (iterResult.type !== "message-event") {
@@ -247,8 +249,11 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
           return;
         }
 
+        // If at least one sampling topic, use sampling path which handles mixed topics in one pass.
+        // Holds only the latest raw message per sampled topic for the current window.
         const pendingSampledByTopic = new Map<string, MessageEvent<Uint8Array>>();
-        const bufferedDecoded: MessageEvent[] = [];
+        const bufferedDecoded: MessageEvent[] = []; // non-sampling topic messages
+        // One-item lookahead: result already read but belonging to the next sampling window.
         let carryOver: Readonly<IteratorResult<Uint8Array>> | undefined;
 
         // Flush buffered decoded messages and the latest sampled raw messages.
@@ -290,6 +295,8 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
           }
           pendingSampledByTopic.clear();
 
+          // Flush combines unsampled buffered messages with sampled latest-per-topic messages.
+          // Sort to preserve log-time order before yielding downstream.
           decoded.sort((a, b) => compare(a.receiveTime, b.receiveTime));
           for (const msgEvent of decoded) {
             yield { type: "message-event" as const, msgEvent };
@@ -329,7 +336,7 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
             continue;
           }
 
-          // No sampling window end defined (happens when seeking at random places in timeline), just deserialize and yield.
+          // No sampling window end defined, just deserialize and yield.
           if (!samplingWindowEnd) {
             try {
               const subscription = subscribePayloadWithHashByTopic.get(iterResult.msgEvent.topic);
@@ -371,6 +378,7 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
           const samplingWindowCompare = compare(iterResult.msgEvent.receiveTime, samplingWindowEnd);
           if (samplingWindowCompare > 0) {
             yield* flushPending();
+            // Defer this message so it is processed in the next sampling window.
             carryOver = iterResult;
             yield { type: "stamp", stamp: samplingWindowEnd };
             continue;
