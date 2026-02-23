@@ -16,11 +16,11 @@ import { MessageReader as ROS2MessageReader } from "@lichtblick/rosmsg2-serializ
 import { parseFlatbufferSchema } from "./parseFlatbufferSchema";
 import { parseJsonSchema } from "./parseJsonSchema";
 import { parseProtobufSchema } from "./parseProtobufSchema";
-import { MessageDefinitionMap } from "./types";
+import { MessageDefinitionMap, SchemaDefinition } from "./types";
 
 type Channel = {
   messageEncoding: string;
-  schema: { name: string; encoding: string; data: Uint8Array } | undefined;
+  schema: SchemaDefinition | undefined;
 };
 
 export type ParsedChannel = {

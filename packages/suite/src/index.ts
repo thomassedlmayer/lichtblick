@@ -543,6 +543,11 @@ export type RegisterMessageConverterArgs<Src> = {
    * Custom settings for the topics using the schema specified in the *toSchemaName* property
    */
   panelSettings?: Record<string, PanelSettings<unknown>>;
+  /**
+   * Optional schema definitions used to decode messages for `fromSchemaName`,
+   * keyed by schema encoding (e.g. "protobuf", "flatbuffer", "ros2msg").
+   */
+  schemaDefinitionsByEncoding?: Readonly<Record<string, Uint8Array>>;
 };
 
 type BaseTopic = { name: string; schemaName?: string };

@@ -10,6 +10,7 @@ import { StoreApi, useStore } from "zustand";
 
 import { CameraModelsMap } from "@lichtblick/den/image/types";
 import { useGuaranteedContext } from "@lichtblick/hooks";
+import { SchemaDefinition } from "@lichtblick/mcap-support";
 import {
   ExtensionPanelRegistration,
   Immutable,
@@ -89,6 +90,7 @@ export type ExtensionCatalog = Immutable<{
   installedTopicAliasFunctions: undefined | TopicAliasFunctions;
   installedCameraModels: CameraModelsMap;
   panelSettings: undefined | ExtensionSettings;
+  installedSchemaDefinitions: Map<string, SchemaDefinitionEntry>;
 }>;
 
 export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
@@ -96,9 +98,15 @@ export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
   extensionId?: string;
 };
 
+export type SchemaDefinitionEntry = SchemaDefinition & {
+  extensionNamespace?: Namespace;
+  extensionId?: string;
+};
+
 export type ContributionPoints = {
   panels: Record<string, RegisteredPanel>;
   messageConverters: MessageConverter[];
+  messageConverterSchemas: SchemaDefinitionEntry[];
   topicAliasFunctions: TopicAliasFunctions;
   panelSettings: ExtensionSettings;
   cameraModels: CameraModelsMap;
