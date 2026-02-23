@@ -244,6 +244,66 @@ describe("DeserializingIterableSources", () => {
     }
   });
 
+  it("falls back to MCAP schema when registered schema is invalid and reports a warning", async () => {
+    const source = new TestSource();
+    source.initialize = async () => ({
+      start: { sec: 0, nsec: 0 },
+      end: { sec: 10, nsec: 0 },
+      topics: [
+        {
+          name: "json_topic",
+          schemaName: "some_type",
+          messageEncoding: "json",
+          schemaEncoding: "jsonschema",
+          schemaData: textEncoder.encode(
+            JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
+          ),
+        },
+      ],
+      topicStats: new Map(),
+      profile: undefined,
+      alerts: [],
+      datatypes: new Map(),
+      publishersByTopic: new Map(),
+    });
+
+    const invalidRegisteredSchema = textEncoder.encode("not valid json schema");
+    const schemaDefinitionsByName = new Map([
+      [
+        "some_type\njsonschema",
+        { name: "some_type", encoding: "jsonschema", data: invalidRegisteredSchema },
+      ],
+    ]);
+    const deserSource = new DeserializingIterableSource(source, schemaDefinitionsByName);
+    const initResult = await deserSource.initialize();
+
+    const warnCalls = (console.warn as jest.Mock).mock.calls.length;
+    (console.warn as jest.Mock).mockClear();
+    expect(warnCalls).toBeGreaterThan(0);
+    expect(initResult.alerts).toContainEqual(
+      expect.objectContaining({
+        severity: "warn",
+        message: "Falling back to MCAP schema definition.",
+      }),
+    );
+
+    source.messageIterator = defaultMessageIterator;
+    const messageIterator = deserSource.messageIterator({
+      topics: new Map([["json_topic", { topic: "json_topic" }]]),
+    });
+
+    await expect(messageIterator.next()).resolves.toMatchObject({
+      done: false,
+      value: {
+        type: "message-event",
+        msgEvent: {
+          topic: "json_topic",
+          message: { foo: "bar", iteration: 0 },
+        },
+      },
+    });
+  });
+
   it("handles deserialization errors for backfill messages", async () => {
     const source = new TestSource();
     const deserSource = new DeserializingIterableSource(source);

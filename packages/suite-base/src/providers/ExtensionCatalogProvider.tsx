@@ -18,6 +18,7 @@ import {
   ExtensionData,
   InstallExtensionsResult,
   LoadExtensionsResult,
+  SchemaDefinitionEntry,
 } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { buildContributionPoints } from "@lichtblick/suite-base/providers/helpers/buildContributionPoints";
 import {
@@ -29,6 +30,44 @@ import { ExtensionInfo } from "@lichtblick/suite-base/types/Extensions";
 import isDesktopApp from "@lichtblick/suite-base/util/isDesktopApp";
 
 const log = Logger.getLogger(__filename);
+
+function namespacePriority(namespace: Namespace | undefined): number {
+  if (namespace === "local") {
+    return 0;
+  }
+  if (namespace === "org") {
+    return 1;
+  }
+  return 2;
+}
+
+function schemaDefinitionKey(name: string, encoding: string): string {
+  return `${name}\n${encoding}`;
+}
+
+function mergeSchemaDefinitions(
+  existing: Map<string, SchemaDefinitionEntry>,
+  incoming: readonly SchemaDefinitionEntry[],
+): Map<string, SchemaDefinitionEntry> {
+  const updated = new Map(existing);
+
+  for (const schema of incoming) {
+    const key = schemaDefinitionKey(schema.name, schema.encoding);
+    const current = updated.get(key);
+    if (!current) {
+      updated.set(key, schema);
+      continue;
+    }
+
+    if (
+      namespacePriority(schema.extensionNamespace) < namespacePriority(current.extensionNamespace)
+    ) {
+      updated.set(key, schema);
+    }
+  }
+
+  return updated;
+}
 
 function createExtensionRegistryStore(
   loaders: readonly IExtensionLoader[],
@@ -152,6 +191,7 @@ function createExtensionRegistryStore(
       info: ExtensionInfo,
       {
         messageConverters,
+        messageConverterSchemas,
         panelSettings,
         panels,
         topicAliasFunctions,
@@ -171,6 +211,10 @@ function createExtensionRegistryStore(
           ...state.installedCameraModels,
           ...Array.from(cameraModels.entries()),
         ]),
+        installedSchemaDefinitions: mergeSchemaDefinitions(
+          new Map(state.installedSchemaDefinitions),
+          messageConverterSchemas,
+        ),
       }));
     };
 
@@ -227,6 +271,9 @@ function createExtensionRegistryStore(
             _.assign(panels, newContributionPoints.panels);
             _.merge(panelSettings, newContributionPoints.panelSettings);
             messageConverters.push(...newContributionPoints.messageConverters);
+            contributionPoints.messageConverterSchemas.push(
+              ...newContributionPoints.messageConverterSchemas,
+            );
             topicAliasFunctions.push(...newContributionPoints.topicAliasFunctions);
 
             newContributionPoints.cameraModels.forEach((builder, name: string) => {
@@ -255,6 +302,7 @@ function createExtensionRegistryStore(
       const installedExtensions: ExtensionInfo[] = [];
       const contributionPoints: ContributionPoints = {
         messageConverters: [],
+        messageConverterSchemas: [],
         panels: {},
         panelSettings: {},
         topicAliasFunctions: [],
@@ -290,6 +338,10 @@ function createExtensionRegistryStore(
         installedMessageConverters: contributionPoints.messageConverters,
         installedTopicAliasFunctions: contributionPoints.topicAliasFunctions,
         installedCameraModels: contributionPoints.cameraModels,
+        installedSchemaDefinitions: mergeSchemaDefinitions(
+          new Map(),
+          contributionPoints.messageConverterSchemas,
+        ),
         panelSettings: contributionPoints.panelSettings,
       });
     };
@@ -306,6 +358,7 @@ function createExtensionRegistryStore(
         | "installedMessageConverters"
         | "installedTopicAliasFunctions"
         | "installedCameraModels"
+        | "installedSchemaDefinitions"
       >;
     }) {
       const {
@@ -314,6 +367,7 @@ function createExtensionRegistryStore(
         installedMessageConverters,
         installedTopicAliasFunctions,
         installedCameraModels,
+        installedSchemaDefinitions,
       } = state;
 
       return {
@@ -329,6 +383,9 @@ function createExtensionRegistryStore(
         ),
         installedCameraModels: new Map(
           [...installedCameraModels].filter(([, { extensionId }]) => extensionId !== id),
+        ),
+        installedSchemaDefinitions: new Map(
+          [...installedSchemaDefinitions].filter(([, schema]) => schema.extensionId !== id),
         ),
       };
     }
@@ -381,6 +438,16 @@ function createExtensionRegistryStore(
       installedPanels: {},
       installedTopicAliasFunctions: [],
       installedCameraModels: new Map(),
+      installedSchemaDefinitions: mergeSchemaDefinitions(
+        new Map(),
+        (mockMessageConverters ?? []).flatMap((converter) =>
+          Object.entries(converter.schemaDefinitionsByEncoding ?? {}).map(([encoding, data]) => ({
+            name: converter.fromSchemaName,
+            encoding,
+            data,
+          })),
+        ),
+      ),
       loadedExtensions: new Set<string>(),
       panelSettings: _.merge(
         {},

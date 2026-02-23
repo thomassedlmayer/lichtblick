@@ -9,3 +9,9 @@ import { MessageDefinition } from "@lichtblick/message-definition";
 
 /** A map of schema name to the schema message definition */
 export type MessageDefinitionMap = Map<string, MessageDefinition>;
+
+export type SchemaDefinition = {
+  name: string;
+  encoding: string;
+  data: Uint8Array;
+};

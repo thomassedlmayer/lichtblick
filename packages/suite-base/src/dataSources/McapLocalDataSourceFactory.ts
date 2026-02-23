@@ -52,6 +52,7 @@ class McapLocalDataSourceFactory implements IDataSourceFactory {
       name: mergeMultipleFileNames(files.map((file) => file.name)),
       sourceId: this.id,
       readAheadDuration: { sec: 120, nsec: 0 },
+      schemaDefinitionsByName: args.schemaDefinitionsByName,
     });
   }
 }

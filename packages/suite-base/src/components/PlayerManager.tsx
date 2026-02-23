@@ -28,6 +28,7 @@ import { useLatest, useMountedState } from "react-use";
 
 import { useWarnImmediateReRender } from "@lichtblick/hooks";
 import Logger from "@lichtblick/log";
+import { SchemaDefinition } from "@lichtblick/mcap-support";
 import { Immutable } from "@lichtblick/suite";
 import { MessagePipelineProvider } from "@lichtblick/suite-base/components/MessagePipeline";
 import { useAnalytics } from "@lichtblick/suite-base/context/AnalyticsContext";
@@ -165,11 +166,19 @@ export default function PlayerManager(
       metricsCollector.setProperty("player", sourceId);
 
       setSelectedSource(foundSource);
+      const installedSchemaDefinitions =
+        extensionCatalogContext?.getState().installedSchemaDefinitions;
+      const schemaDefinitionsByName = installedSchemaDefinitions
+        ? new Map<string, SchemaDefinition>(
+            installedSchemaDefinitions as Map<string, SchemaDefinition>,
+          )
+        : new Map<string, SchemaDefinition>();
 
       // Sample sources don't need args or prompts to initialize
       if (foundSource.type === "sample") {
         const newPlayer = foundSource.initialize({
           metricsCollector,
+          schemaDefinitionsByName,
         });
 
         setBasePlayer(newPlayer);
@@ -188,6 +197,7 @@ export default function PlayerManager(
             const newPlayer = foundSource.initialize({
               metricsCollector,
               params: args.params,
+              schemaDefinitionsByName,
             });
             setBasePlayer(newPlayer);
 
@@ -224,6 +234,7 @@ export default function PlayerManager(
                 file: multiFile ? undefined : file,
                 files: multiFile ? fileList : undefined,
                 metricsCollector,
+                schemaDefinitionsByName,
               });
 
               setBasePlayer(newPlayer);
@@ -250,6 +261,7 @@ export default function PlayerManager(
               const newPlayer = foundSource.initialize({
                 files: filesHandled,
                 metricsCollector,
+                schemaDefinitionsByName,
               });
 
               setBasePlayer(newPlayer);
@@ -270,7 +282,14 @@ export default function PlayerManager(
         enqueueSnackbar((error as Error).message, { variant: "error" });
       }
     },
-    [playerSources, metricsCollector, enqueueSnackbar, isMounted, addRecent],
+    [
+      playerSources,
+      metricsCollector,
+      enqueueSnackbar,
+      isMounted,
+      addRecent,
+      extensionCatalogContext,
+    ],
   );
 
   // Select a recent entry by id
