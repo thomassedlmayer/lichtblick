@@ -30,13 +30,13 @@ export function isTopicHighFrequency(
     duration,
   );
   if (frequency != undefined && frequency > FREQUENCY_LIMIT) {
-    alertManager.addAlert("high-frequency", {
+    /* alertManager.addAlert("high-frequency", {
       severity: "warn",
       message: "High frequency topics detected",
       error: new Error(
         `The current data source has one or more topics with message frequency higher than 60Hz, which may impact performance and application memory.`,
       ),
-    });
+    }); */
 
     return true;
   }

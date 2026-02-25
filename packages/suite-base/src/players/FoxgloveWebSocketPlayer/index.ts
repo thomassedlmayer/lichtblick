@@ -80,6 +80,13 @@ const log = Log.getLogger(__dirname);
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
+type PendingSampledMessage = {
+  receiveTime: Time;
+  data: Uint8Array;
+  chanInfo: ResolvedChannel;
+  sizeInBytes: number;
+};
+
 export default class FoxgloveWebSocketPlayer implements Player {
   readonly #sourceId: string;
 
@@ -97,6 +104,8 @@ export default class FoxgloveWebSocketPlayer implements Player {
   #datatypes: MessageDefinitionMap = new Map(); // Datatypes as published by the WebSocket.
   #parsedMessages: MessageEvent[] = []; // Queue of messages that we'll send in next _emitState() call.
   #parsedMessagesBytes: number = 0;
+  #pendingSampledMessagesByTopic = new Map<string, PendingSampledMessage>();
+  #pendingSampledMessagesBytes: number = 0;
   #receivedBytes: number = 0;
   #metricsCollector: PlayerMetricsCollectorInterface;
   #presence: PlayerPresence = PlayerPresence.INITIALIZING;
@@ -142,6 +151,7 @@ export default class FoxgloveWebSocketPlayer implements Player {
   #fetchedAssets = new Map<string, Promise<Asset>>();
   #parameterTypeByName = new Map<string, Parameter["type"]>();
   #messageSizeEstimateByTopic: Record<string, number> = {};
+  #sampledTopics = new Set<string>();
 
   public constructor({
     url,
@@ -500,7 +510,7 @@ export default class FoxgloveWebSocketPlayer implements Player {
       this.#emitState();
     });
 
-    this.#client.on("message", ({ subscriptionId, data }) => {
+    this.#client.on("message", ({ subscriptionId, data, timestamp }) => {
       const chanInfo = this.#resolvedSubscriptionsById.get(subscriptionId);
       if (!chanInfo) {
         const wasRecentlyCanceled = this.#recentlyCanceledSubscriptions.has(subscriptionId);
@@ -516,47 +526,48 @@ export default class FoxgloveWebSocketPlayer implements Player {
 
       try {
         this.#receivedBytes += data.byteLength;
-        const receiveTime = this.#getCurrentTime();
+        // Prefer per-message timestamp from the protocol payload.
+        // Falling back to current clock keeps compatibility with older servers.
+        const receiveTime = timestamp != undefined ? fromNanoSec(timestamp) : this.#getCurrentTime();
         const topic = chanInfo.channel.topic;
-        const deserializedMessage = chanInfo.parsedChannel.deserialize(data);
-
-        // Lookup the size estimate for this topic or compute it if not found in the cache.
-        let msgSizeEstimate = this.#messageSizeEstimateByTopic[topic];
-        if (msgSizeEstimate == undefined) {
-          msgSizeEstimate = estimateObjectSize(deserializedMessage);
-          this.#messageSizeEstimateByTopic[topic] = msgSizeEstimate;
-        }
-
-        const sizeInBytes = Math.max(data.byteLength, msgSizeEstimate);
-        this.#parsedMessages.push({
-          topic,
-          receiveTime,
-          message: deserializedMessage,
-          sizeInBytes,
-          schemaName: chanInfo.channel.schemaName,
-        });
-        this.#parsedMessagesBytes += sizeInBytes;
-        if (this.#parsedMessagesBytes > CURRENT_FRAME_MAXIMUM_SIZE_BYTES) {
-          this.#alerts.addAlert(`webSocketPlayer:parsedMessageCacheFull`, {
-            severity: "error",
-            message: `WebSocketPlayer maximum frame size (${(
-              CURRENT_FRAME_MAXIMUM_SIZE_BYTES / 1_000_000
-            ).toFixed(
-              2,
-            )}MB) reached. Dropping old messages. This accumulation can occur if the browser tab has been inactive.`,
-          });
-          // Amortize cost of dropping messages by dropping parsedMessages size to
-          // 80% so that it doesn't happen for every message after reaching the limit
-          const evictUntilSize = 0.8 * CURRENT_FRAME_MAXIMUM_SIZE_BYTES;
-          let droppedBytes = 0;
-          let indexToCutBefore = 0;
-          while (this.#parsedMessagesBytes - droppedBytes > evictUntilSize) {
-            droppedBytes += this.#parsedMessages[indexToCutBefore]!.sizeInBytes;
-            indexToCutBefore++;
+        if (this.#sampledTopics.has(topic)) {
+          const copiedData = new Uint8Array(data.byteLength);
+          copiedData.set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+          const sizeInBytes = copiedData.byteLength;
+          const existing = this.#pendingSampledMessagesByTopic.get(topic);
+          if (existing) {
+            this.#pendingSampledMessagesBytes -= existing.sizeInBytes;
           }
-          this.#parsedMessages.splice(0, indexToCutBefore);
-          this.#parsedMessagesBytes -= droppedBytes;
+
+          this.#pendingSampledMessagesByTopic.set(topic, {
+            receiveTime,
+            data: copiedData,
+            chanInfo,
+            sizeInBytes,
+          });
+          this.#pendingSampledMessagesBytes += sizeInBytes;
+        } else {
+          const deserializedMessage = chanInfo.parsedChannel.deserialize(data);
+
+          // Lookup the size estimate for this topic or compute it if not found in the cache.
+          let msgSizeEstimate = this.#messageSizeEstimateByTopic[topic];
+          if (msgSizeEstimate == undefined) {
+            msgSizeEstimate = estimateObjectSize(deserializedMessage);
+            this.#messageSizeEstimateByTopic[topic] = msgSizeEstimate;
+          }
+
+          const sizeInBytes = Math.max(data.byteLength, msgSizeEstimate);
+          this.#parsedMessages.push({
+            topic,
+            receiveTime,
+            message: deserializedMessage,
+            sizeInBytes,
+            schemaName: chanInfo.channel.schemaName,
+          });
+          this.#parsedMessagesBytes += sizeInBytes;
         }
+
+        this.#evictQueuedMessagesIfNeeded();
 
         // Update the message count for this topic
         const topicStats = new Map(this.#topicsStats);
@@ -900,8 +911,43 @@ export default class FoxgloveWebSocketPlayer implements Player {
     }
 
     const messages = this.#parsedMessages;
+    if (this.#pendingSampledMessagesByTopic.size > 0) {
+      for (const [topic, pendingMessage] of this.#pendingSampledMessagesByTopic) {
+        try {
+          const deserializedMessage = pendingMessage.chanInfo.parsedChannel.deserialize(
+            pendingMessage.data,
+          );
+          let msgSizeEstimate = this.#messageSizeEstimateByTopic[topic];
+          if (msgSizeEstimate == undefined) {
+            msgSizeEstimate = estimateObjectSize(deserializedMessage);
+            this.#messageSizeEstimateByTopic[topic] = msgSizeEstimate;
+          }
+
+          const sizeInBytes = Math.max(pendingMessage.data.byteLength, msgSizeEstimate);
+          messages.push({
+            topic,
+            receiveTime: pendingMessage.receiveTime,
+            message: deserializedMessage,
+            sizeInBytes,
+            schemaName: pendingMessage.chanInfo.channel.schemaName,
+          });
+        } catch (error) {
+          this.#alerts.addAlert(`message:${topic}`, {
+            severity: "error",
+            message: `Failed to parse message on ${topic}`,
+            error,
+          });
+        }
+      }
+
+      messages.sort((a, b) =>
+        isLessThan(a.receiveTime, b.receiveTime) ? -1 : isLessThan(b.receiveTime, a.receiveTime) ? 1 : 0,
+      );
+    }
     this.#parsedMessages = [];
     this.#parsedMessagesBytes = 0;
+    this.#pendingSampledMessagesByTopic.clear();
+    this.#pendingSampledMessagesBytes = 0;
     return this.#listener({
       name: this.#name,
       presence: this.#presence,
@@ -952,6 +998,18 @@ export default class FoxgloveWebSocketPlayer implements Player {
 
   public setSubscriptions(subscriptions: SubscribePayload[]): void {
     const newTopics = new Set(subscriptions.map(({ topic }) => topic));
+    const sampledTopics = new Set(
+      subscriptions
+        .filter((subscription) => subscription.sampling?.mode === "latest-per-render-tick")
+        .map((subscription) => subscription.topic),
+    );
+    this.#sampledTopics = sampledTopics;
+    for (const [topic, pendingMessage] of this.#pendingSampledMessagesByTopic) {
+      if (!newTopics.has(topic) || !sampledTopics.has(topic)) {
+        this.#pendingSampledMessagesByTopic.delete(topic);
+        this.#pendingSampledMessagesBytes -= pendingMessage.sizeInBytes;
+      }
+    }
 
     if (!this.#client || this.#closed) {
       // Remember requested subscriptions so we can retry subscribing when
@@ -1322,6 +1380,9 @@ export default class FoxgloveWebSocketPlayer implements Player {
     this.#clockTime = undefined;
     this.#topicsStats = new Map();
     this.#parsedMessages = [];
+    this.#parsedMessagesBytes = 0;
+    this.#pendingSampledMessagesByTopic.clear();
+    this.#pendingSampledMessagesBytes = 0;
     this.#receivedBytes = 0;
     this.#alerts.clear();
     this.#parameters = new Map();
@@ -1337,6 +1398,61 @@ export default class FoxgloveWebSocketPlayer implements Player {
     this.#fetchAssetRequests.clear();
     this.#parameterTypeByName.clear();
     this.#messageSizeEstimateByTopic = {};
+  }
+
+  #evictQueuedMessagesIfNeeded(): void {
+    const totalQueuedBytes = this.#parsedMessagesBytes + this.#pendingSampledMessagesBytes;
+    if (totalQueuedBytes <= CURRENT_FRAME_MAXIMUM_SIZE_BYTES) {
+      return;
+    }
+
+    this.#alerts.addAlert(`webSocketPlayer:parsedMessageCacheFull`, {
+      severity: "error",
+      message: `WebSocketPlayer maximum frame size (${(CURRENT_FRAME_MAXIMUM_SIZE_BYTES / 1_000_000).toFixed(
+        2,
+      )}MB) reached. Dropping old messages. This accumulation can occur if the browser tab has been inactive.`,
+    });
+
+    const evictUntilSize = 0.8 * CURRENT_FRAME_MAXIMUM_SIZE_BYTES;
+    while (this.#parsedMessagesBytes + this.#pendingSampledMessagesBytes > evictUntilSize) {
+      const oldestParsedMessage = this.#parsedMessages[0];
+      const oldestSampledTopic = this.#findOldestPendingSampledTopic();
+      const oldestSampledMessage = oldestSampledTopic
+        ? this.#pendingSampledMessagesByTopic.get(oldestSampledTopic)
+        : undefined;
+
+      if (!oldestParsedMessage && !oldestSampledMessage) {
+        break;
+      }
+
+      if (
+        oldestParsedMessage &&
+        (!oldestSampledMessage ||
+          !isLessThan(oldestSampledMessage.receiveTime, oldestParsedMessage.receiveTime))
+      ) {
+        const dropped = this.#parsedMessages.shift();
+        if (dropped) {
+          this.#parsedMessagesBytes -= dropped.sizeInBytes;
+        }
+      } else if (oldestSampledTopic && oldestSampledMessage) {
+        this.#pendingSampledMessagesByTopic.delete(oldestSampledTopic);
+        this.#pendingSampledMessagesBytes -= oldestSampledMessage.sizeInBytes;
+      }
+    }
+  }
+
+  #findOldestPendingSampledTopic(): string | undefined {
+    let oldestTopic: string | undefined;
+    let oldestMessage: PendingSampledMessage | undefined;
+
+    for (const [topic, pendingMessage] of this.#pendingSampledMessagesByTopic) {
+      if (!oldestMessage || isLessThan(pendingMessage.receiveTime, oldestMessage.receiveTime)) {
+        oldestTopic = topic;
+        oldestMessage = pendingMessage;
+      }
+    }
+
+    return oldestTopic;
   }
 
   #updateDataTypes(datatypes: MessageDefinitionMap): void {
