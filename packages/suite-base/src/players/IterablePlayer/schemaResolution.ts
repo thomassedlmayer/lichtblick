@@ -14,6 +14,7 @@ const log = Logger.getLogger(__filename);
 export type SchemaDefinitionWithSource = SchemaDefinition & {
   extensionId?: string;
   extensionNamespace?: string;
+  label?: string;
 };
 
 type ResolveDeserializerForTopicArgs = {
@@ -57,17 +58,18 @@ function describeSchemaSource(schema: SchemaDefinition): string {
   const schemaWithSource = schema as SchemaDefinitionWithSource;
   const id = schemaWithSource.extensionId;
   const namespace = schemaWithSource.extensionNamespace;
+  const label = schemaWithSource.label;
 
+  let source = "unknown";
   if (id != undefined && namespace != undefined) {
-    return `${namespace}:${id}`;
+    source = `${namespace}:${id}`;
+  } else if (id != undefined) {
+    source = id;
+  } else if (namespace != undefined) {
+    source = namespace;
   }
-  if (id != undefined) {
-    return id;
-  }
-  if (namespace != undefined) {
-    return namespace;
-  }
-  return "unknown";
+
+  return label != undefined && label.length > 0 ? `${source} ('${label}')` : source;
 }
 
 function namespacePriority(namespace: string | undefined): number {
@@ -115,10 +117,27 @@ function sortSchemaCandidates(
   return [...schemas].sort(compareSchemaCandidates);
 }
 
+function describeDroppedSchemaSources(
+  selected: SchemaDefinitionWithSource,
+  candidates: readonly SchemaDefinitionWithSource[],
+): string {
+  return candidates
+    .filter((candidate) => candidate !== selected)
+    .map((candidate) => describeSchemaSource(candidate))
+    .join(", ");
+}
+
 export function resolveDeserializerForTopic(
   args: ResolveDeserializerForTopicArgs,
 ): ResolveDeserializerForTopicResult {
-  const { topic, messageEncoding, schemaName, schemaData, schemaEncoding, registeredSchemaDefinitionsByName } = args;
+  const {
+    topic,
+    messageEncoding,
+    schemaName,
+    schemaData,
+    schemaEncoding,
+    registeredSchemaDefinitionsByName,
+  } = args;
   const alerts: Initialization["alerts"] = [];
 
   if (messageEncoding == undefined) {
@@ -184,17 +203,16 @@ export function resolveDeserializerForTopic(
               alerts: [
                 {
                   severity: "info",
-                  message: `Using registered schema definition for ${schemaName} (${selectedRegistrySchema.encoding}) from ${describeSchemaSource(
-                    selectedRegistrySchema,
-                  )}.`,
+                  message: `${schemaName}: Using registered schema definition`,
+                  error: Error(`Using ${describeSchemaSource(selectedRegistrySchema)}.`),
                 },
                 ...(selectedRegistryCandidates.length > 1
                   ? [
                       {
                         severity: "warn" as const,
-                        message: `Using registered schema definition from ${describeSchemaSource(selectedRegistrySchema)}.`,
+                        message: `Found multiple registered schema definitions`,
                         error: Error(
-                          `Multiple registered schema definitions found for ${schemaName} (${selectedRegistrySchema.encoding}).`,
+                          `Found multiple registered schema definitions for ${schemaName} (${selectedRegistrySchema.encoding}).\nDropped ${describeDroppedSchemaSources(selectedRegistrySchema, selectedRegistryCandidates)}.`,
                         ),
                       },
                     ]

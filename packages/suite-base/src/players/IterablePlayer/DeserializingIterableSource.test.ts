@@ -355,14 +355,10 @@ describe("DeserializingIterableSources", () => {
     const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
     const initResult = await deserSource.initialize();
 
-    expect(initResult.alerts).toContainEqual(
-      expect.objectContaining({
-        severity: "info",
-        message: expect.stringContaining(
-          "Using registered schema definition for some_type (jsonschema) from local:ext-a.",
-        ),
-      }),
-    );
+    const infoAlert = initResult.alerts.find((alert) => alert.severity === "info");
+    expect(infoAlert).toBeDefined();
+    expect(infoAlert?.message).toBe("some_type: Using registered schema definition");
+    expect(infoAlert?.error?.message).toContain("Using local:ext-a.");
     expect(initResult.alerts).not.toContainEqual(
       expect.objectContaining({
         severity: "warn",
@@ -418,12 +414,11 @@ describe("DeserializingIterableSources", () => {
 
     const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
     const initResult = await deserSource.initialize();
-    expect(initResult.alerts).toContainEqual(
-      expect.objectContaining({
-        severity: "warn",
-        message: expect.stringContaining("Using registered schema definition from local:ext-a."),
-      }),
+    const warnAlert = initResult.alerts.find(
+      (alert) => alert.severity === "warn" && alert.message === "Found multiple registered schema definitions",
     );
+    expect(warnAlert).toBeDefined();
+    expect(warnAlert?.error?.message).toContain("Dropped org:ext-b");
   });
 
   it("tries alternate registered schemas for same name+encoding before MCAP fallback", async () => {

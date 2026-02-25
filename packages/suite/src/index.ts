@@ -549,6 +549,7 @@ export type RegisterSchemaDefinitionArgs = {
   name: string;
   encoding: string;
   data: Uint8Array;
+  label?: string;
 };
 
 type BaseTopic = { name: string; schemaName?: string };
