@@ -130,6 +130,7 @@ describe("buildContributionPoints", () => {
       name: BasicBuilder.string(),
       encoding: "protobuf",
       data: new Uint8Array([1, 2, 3]),
+      label: "SensorView v1",
     };
 
     (globalThis as any).schemaDefinition = schemaDefinition;

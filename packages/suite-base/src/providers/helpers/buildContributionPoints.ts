@@ -96,6 +96,7 @@ export function buildContributionPoints(
         name: schemaDefinition.name,
         encoding: schemaDefinition.encoding,
         data: schemaDefinition.data,
+        label: schemaDefinition.label,
         extensionNamespace: extension.namespace,
         extensionId: extension.id,
       };

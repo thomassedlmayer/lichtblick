@@ -101,6 +101,7 @@ export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
 export type RegisteredSchemaDefinition = SchemaDefinition & {
   extensionNamespace?: Namespace;
   extensionId?: string;
+  label?: string;
 };
 
 export type ContributionPoints = {
