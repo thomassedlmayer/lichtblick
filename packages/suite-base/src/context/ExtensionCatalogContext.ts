@@ -98,9 +98,19 @@ export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
   extensionId?: string;
 };
 
-export type SchemaDefinitionEntry = SchemaDefinition & {
+export type RegisteredSchemaDefinition = SchemaDefinition & {
   extensionNamespace?: Namespace;
   extensionId?: string;
+};
+
+export type SchemaDefinitionEntry = RegisteredSchemaDefinition & {
+  conflictingSchemaDefinitions?: ReadonlyArray<{
+    name: string;
+    encoding: string;
+    data: Uint8Array;
+    extensionNamespace?: Namespace;
+    extensionId?: string;
+  }>;
 };
 
 export type ContributionPoints = {

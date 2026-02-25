@@ -626,5 +626,143 @@ describe("ExtensionCatalogProvider", () => {
         extensionId: extensionInfo.id,
       });
     });
+
+    it("drops identical duplicate schema definitions", () => {
+      const { result, extensionInfo } = setup();
+      const schemaData = new Uint8Array([1, 2, 3, 4]);
+      const contributionPoints: ContributionPoints = {
+        messageConverters: [],
+        messageConverterSchemas: [
+          {
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: schemaData,
+            extensionId: extensionInfo.id,
+            extensionNamespace: extensionInfo.namespace,
+          },
+          {
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: new Uint8Array([1, 2, 3, 4]),
+            extensionId: `${extensionInfo.id}-duplicate`,
+            extensionNamespace: extensionInfo.namespace,
+          },
+        ],
+        cameraModels: new Map(),
+        topicAliasFunctions: [],
+        panelSettings: {},
+        panels: {},
+      };
+
+      act(() => {
+        result.current.mergeState(extensionInfo, contributionPoints);
+      });
+
+      expect(result.current.installedSchemaDefinitions.size).toBe(1);
+      expect(
+        result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf"),
+      ).toEqual(
+        expect.objectContaining({
+          name: "osi3.sensorview",
+          encoding: "protobuf",
+          data: new Uint8Array([1, 2, 3, 4]),
+          extensionId: extensionInfo.id,
+        }),
+      );
+    });
+
+    it("tracks conflicts for non-identical duplicate schema definitions", () => {
+      const { result, extensionInfo } = setup();
+      const contributionPoints: ContributionPoints = {
+        messageConverters: [],
+        messageConverterSchemas: [
+          {
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: new Uint8Array([1, 2, 3, 4]),
+            extensionId: extensionInfo.id,
+            extensionNamespace: extensionInfo.namespace,
+          },
+          {
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: new Uint8Array([4, 3, 2, 1]),
+            extensionId: `${extensionInfo.id}-other`,
+            extensionNamespace: extensionInfo.namespace,
+          },
+        ],
+        cameraModels: new Map(),
+        topicAliasFunctions: [],
+        panelSettings: {},
+        panels: {},
+      };
+
+      act(() => {
+        result.current.mergeState(extensionInfo, contributionPoints);
+      });
+
+      expect(result.current.installedSchemaDefinitions.size).toBe(1);
+      expect(
+        result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf"),
+      ).toEqual(
+        expect.objectContaining({
+          name: "osi3.sensorview",
+          encoding: "protobuf",
+          extensionId: extensionInfo.id,
+          conflictingSchemaDefinitions: [
+            {
+              name: "osi3.sensorview",
+              encoding: "protobuf",
+              data: new Uint8Array([4, 3, 2, 1]),
+              extensionId: `${extensionInfo.id}-other`,
+              extensionNamespace: extensionInfo.namespace,
+            },
+          ],
+        }),
+      );
+    });
+
+    it("retains conflicts even when duplicate schemas come from the same extension", () => {
+      const { result, extensionInfo } = setup();
+      const contributionPoints: ContributionPoints = {
+        messageConverters: [],
+        messageConverterSchemas: [
+          {
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: new Uint8Array([1, 2, 3, 4]),
+            extensionId: extensionInfo.id,
+            extensionNamespace: extensionInfo.namespace,
+          },
+          {
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: new Uint8Array([9, 8, 7, 6]),
+            extensionId: extensionInfo.id,
+            extensionNamespace: extensionInfo.namespace,
+          },
+        ],
+        cameraModels: new Map(),
+        topicAliasFunctions: [],
+        panelSettings: {},
+        panels: {},
+      };
+
+      act(() => {
+        result.current.mergeState(extensionInfo, contributionPoints);
+      });
+
+      const schema = result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf");
+      expect(schema).toBeDefined();
+      expect(schema?.conflictingSchemaDefinitions).toEqual([
+        {
+          name: "osi3.sensorview",
+          encoding: "protobuf",
+          data: new Uint8Array([9, 8, 7, 6]),
+          extensionId: extensionInfo.id,
+          extensionNamespace: extensionInfo.namespace,
+        },
+      ]);
+    });
   });
 });

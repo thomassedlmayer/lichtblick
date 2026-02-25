@@ -18,6 +18,7 @@ import {
   ExtensionData,
   InstallExtensionsResult,
   LoadExtensionsResult,
+  RegisteredSchemaDefinition,
   SchemaDefinitionEntry,
 } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { buildContributionPoints } from "@lichtblick/suite-base/providers/helpers/buildContributionPoints";
@@ -41,6 +42,88 @@ function schemaDefinitionKey(name: string, encoding: string): string {
   return `${name}\n${encoding}`;
 }
 
+function schemasHaveSameData(a: Uint8Array, b: Uint8Array): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a.byteLength !== b.byteLength) {
+    return false;
+  }
+  for (let i = 0; i < a.byteLength; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function schemaDataFingerprint(data: Uint8Array): number {
+  let hash = 2166136261;
+  for (let i = 0; i < data.byteLength; i++) {
+    hash ^= data[i]!;
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return hash >>> 0;
+}
+
+function schemaDefinitionIdentityKey(schema: RegisteredSchemaDefinition): string {
+  return [
+    schema.name,
+    schema.encoding,
+    schema.extensionNamespace ?? "",
+    schema.extensionId ?? "",
+    schema.data.byteLength.toString(),
+    schemaDataFingerprint(schema.data).toString(),
+  ].join("\n");
+}
+
+function schemaVariantsEqual(a: RegisteredSchemaDefinition, b: RegisteredSchemaDefinition): boolean {
+  return (
+    a.name === b.name &&
+    a.encoding === b.encoding &&
+    a.extensionNamespace === b.extensionNamespace &&
+    a.extensionId === b.extensionId &&
+    schemasHaveSameData(a.data, b.data)
+  );
+}
+
+function schemaEntryToVariant(schema: SchemaDefinitionEntry): RegisteredSchemaDefinition {
+  return {
+    name: schema.name,
+    encoding: schema.encoding,
+    data: schema.data,
+    extensionNamespace: schema.extensionNamespace,
+    extensionId: schema.extensionId,
+  };
+}
+
+function schemaEntryVariants(schema: SchemaDefinitionEntry): RegisteredSchemaDefinition[] {
+  return [schemaEntryToVariant(schema), ...(schema.conflictingSchemaDefinitions ?? [])];
+}
+
+function schemaEntryHasEquivalentVariant(
+  existing: SchemaDefinitionEntry,
+  incoming: RegisteredSchemaDefinition,
+): boolean {
+  return schemaEntryVariants(existing).some((variant) => schemaVariantsEqual(variant, incoming));
+}
+
+function mergeConflictingSchemaDefinitions(
+  winner: SchemaDefinitionEntry,
+  loser: SchemaDefinitionEntry,
+): SchemaDefinitionEntry {
+  const existing = winner.conflictingSchemaDefinitions ?? [];
+  const next = [
+    ...existing,
+    schemaEntryToVariant(loser),
+    ...(loser.conflictingSchemaDefinitions ?? []),
+  ];
+  const deduped = new Map(
+    next.map((schema) => [schemaDefinitionIdentityKey(schema), schema] as const),
+  );
+  return { ...winner, conflictingSchemaDefinitions: Array.from(deduped.values()) };
+}
+
 function mergeSchemaDefinitions(
   existing: Map<string, SchemaDefinitionEntry>,
   incoming: readonly SchemaDefinitionEntry[],
@@ -54,11 +137,16 @@ function mergeSchemaDefinitions(
       updated.set(key, schema);
       continue;
     }
+    if (schemaEntryHasEquivalentVariant(current, schemaEntryToVariant(schema))) {
+      continue;
+    }
 
     if (
       namespacePriority(schema.extensionNamespace) < namespacePriority(current.extensionNamespace)
     ) {
-      updated.set(key, schema);
+      updated.set(key, mergeConflictingSchemaDefinitions(schema, current));
+    } else {
+      updated.set(key, mergeConflictingSchemaDefinitions(current, schema));
     }
   }
 
@@ -435,16 +523,7 @@ function createExtensionRegistryStore(
       installedPanels: {},
       installedTopicAliasFunctions: [],
       installedCameraModels: new Map(),
-      installedSchemaDefinitions: mergeSchemaDefinitions(
-        new Map(),
-        (mockMessageConverters ?? []).flatMap((converter) =>
-          Object.entries(converter.schemaDefinitionsByEncoding ?? {}).map(([encoding, data]) => ({
-            name: converter.fromSchemaName,
-            encoding,
-            data,
-          })),
-        ),
-      ),
+      installedSchemaDefinitions: new Map(),
       loadedExtensions: new Set<string>(),
       panelSettings: _.merge(
         {},

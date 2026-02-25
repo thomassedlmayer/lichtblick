@@ -543,11 +543,12 @@ export type RegisterMessageConverterArgs<Src> = {
    * Custom settings for the topics using the schema specified in the *toSchemaName* property
    */
   panelSettings?: Record<string, PanelSettings<unknown>>;
-  /**
-   * Optional schema definitions used to decode messages for `fromSchemaName`,
-   * keyed by schema encoding (e.g. "protobuf", "flatbuffer", "ros2msg").
-   */
-  schemaDefinitionsByEncoding?: Readonly<Record<string, Uint8Array>>;
+};
+
+export type RegisterSchemaDefinitionArgs = {
+  name: string;
+  encoding: string;
+  data: Uint8Array;
 };
 
 type BaseTopic = { name: string; schemaName?: string };
@@ -582,6 +583,11 @@ export interface ExtensionContext {
    * you might want to selectively output a converted schema depending on the input message.
    */
   registerMessageConverter<Src>(args: RegisterMessageConverterArgs<Src>): void;
+
+  /**
+   * Register a schema definition that can be used to decode source messages.
+   */
+  registerSchemaDefinition(args: RegisterSchemaDefinitionArgs): void;
 
   /**
    * Registers a new alias function with the extension context. The function will be
