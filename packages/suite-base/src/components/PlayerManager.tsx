@@ -168,7 +168,7 @@ export default function PlayerManager(
       setSelectedSource(foundSource);
       const installedSchemaDefinitions =
         extensionCatalogContext?.getState().installedSchemaDefinitions;
-      const schemaDefinitionsByName = installedSchemaDefinitions
+      const registeredSchemaDefinitionsByName = installedSchemaDefinitions
         ? new Map<string, SchemaDefinition>(
             installedSchemaDefinitions as Map<string, SchemaDefinition>,
           )
@@ -178,7 +178,7 @@ export default function PlayerManager(
       if (foundSource.type === "sample") {
         const newPlayer = foundSource.initialize({
           metricsCollector,
-          schemaDefinitionsByName,
+          registeredSchemaDefinitionsByName,
         });
 
         setBasePlayer(newPlayer);
@@ -197,7 +197,7 @@ export default function PlayerManager(
             const newPlayer = foundSource.initialize({
               metricsCollector,
               params: args.params,
-              schemaDefinitionsByName,
+              registeredSchemaDefinitionsByName,
             });
             setBasePlayer(newPlayer);
 
@@ -234,7 +234,7 @@ export default function PlayerManager(
                 file: multiFile ? undefined : file,
                 files: multiFile ? fileList : undefined,
                 metricsCollector,
-                schemaDefinitionsByName,
+                registeredSchemaDefinitionsByName,
               });
 
               setBasePlayer(newPlayer);
@@ -261,7 +261,7 @@ export default function PlayerManager(
               const newPlayer = foundSource.initialize({
                 files: filesHandled,
                 metricsCollector,
-                schemaDefinitionsByName,
+                registeredSchemaDefinitionsByName,
               });
 
               setBasePlayer(newPlayer);

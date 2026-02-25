@@ -669,7 +669,7 @@ describe("ExtensionCatalogProvider", () => {
       ];
       const contributionPoints: ContributionPoints = {
         messageConverters: [messageConverter],
-        messageConverterSchemas: [],
+        schemaDefinitions: [],
         cameraModels: new Map(),
         topicAliasFunctions,
         panelSettings: {
@@ -725,7 +725,7 @@ describe("ExtensionCatalogProvider", () => {
       const schemaData = new Uint8Array([1, 2, 3, 4]);
       const contributionPoints: ContributionPoints = {
         messageConverters: [],
-        messageConverterSchemas: [
+        schemaDefinitions: [
           {
             name: "osi3.sensorview",
             encoding: "protobuf",
@@ -752,9 +752,7 @@ describe("ExtensionCatalogProvider", () => {
       });
 
       expect(result.current.installedSchemaDefinitions.size).toBe(1);
-      expect(
-        result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf"),
-      ).toEqual(
+      expect(result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf")).toEqual(
         expect.objectContaining({
           name: "osi3.sensorview",
           encoding: "protobuf",
@@ -768,7 +766,7 @@ describe("ExtensionCatalogProvider", () => {
       const { result, extensionInfo } = setup();
       const contributionPoints: ContributionPoints = {
         messageConverters: [],
-        messageConverterSchemas: [
+        schemaDefinitions: [
           {
             name: "osi3.sensorview",
             encoding: "protobuf",
@@ -795,9 +793,7 @@ describe("ExtensionCatalogProvider", () => {
       });
 
       expect(result.current.installedSchemaDefinitions.size).toBe(1);
-      expect(
-        result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf"),
-      ).toEqual(
+      expect(result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf")).toEqual(
         expect.objectContaining({
           name: "osi3.sensorview",
           encoding: "protobuf",
@@ -819,7 +815,7 @@ describe("ExtensionCatalogProvider", () => {
       const { result, extensionInfo } = setup();
       const contributionPoints: ContributionPoints = {
         messageConverters: [],
-        messageConverterSchemas: [
+        schemaDefinitions: [
           {
             name: "osi3.sensorview",
             encoding: "protobuf",

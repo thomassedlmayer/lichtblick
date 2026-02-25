@@ -58,7 +58,7 @@ class SampleNuscenesDataSourceFactory implements IDataSourceFactory {
       urlParams: {},
       sourceId: this.id,
       readAheadDuration: SAMPLE_NUSCENES_DATA_SOURCE_READ_AHEAD_DURATION,
-      schemaDefinitionsByName: args.schemaDefinitionsByName,
+      registeredSchemaDefinitionsByName: args.registeredSchemaDefinitionsByName,
     });
   }
 }

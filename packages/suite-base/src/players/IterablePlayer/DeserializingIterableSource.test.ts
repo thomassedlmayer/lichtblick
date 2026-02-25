@@ -268,13 +268,13 @@ describe("DeserializingIterableSources", () => {
     });
 
     const invalidRegisteredSchema = textEncoder.encode("not valid json schema");
-    const schemaDefinitionsByName = new Map([
+    const registeredSchemaDefinitionsByName = new Map([
       [
         "some_type\njsonschema",
         { name: "some_type", encoding: "jsonschema", data: invalidRegisteredSchema },
       ],
     ]);
-    const deserSource = new DeserializingIterableSource(source, schemaDefinitionsByName);
+    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
     const initResult = await deserSource.initialize();
 
     const warnCalls = (console.warn as jest.Mock).mock.calls.length;
@@ -323,7 +323,7 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const schemaDefinitionsByName = new Map([
+    const registeredSchemaDefinitionsByName = new Map([
       [
         "some_type\njsonschema",
         {
@@ -348,7 +348,7 @@ describe("DeserializingIterableSources", () => {
       ],
     ]);
 
-    const deserSource = new DeserializingIterableSource(source, schemaDefinitionsByName);
+    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
     const initResult = await deserSource.initialize();
 
     expect(initResult.alerts).toContainEqual(
@@ -386,7 +386,7 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const schemaDefinitionsByName = new Map([
+    const registeredSchemaDefinitionsByName = new Map([
       [
         "some_type\njsonschema",
         {
@@ -412,7 +412,7 @@ describe("DeserializingIterableSources", () => {
       ],
     ]);
 
-    const deserSource = new DeserializingIterableSource(source, schemaDefinitionsByName);
+    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
     const initResult = await deserSource.initialize();
     expect(initResult.alerts).toContainEqual(
       expect.objectContaining({
@@ -444,7 +444,7 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const schemaDefinitionsByName = new Map([
+    const registeredSchemaDefinitionsByName = new Map([
       [
         "some_type\njsonschema",
         {
@@ -467,7 +467,7 @@ describe("DeserializingIterableSources", () => {
         },
       ],
     ]);
-    const deserSource = new DeserializingIterableSource(source, schemaDefinitionsByName);
+    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
     const initResult = await deserSource.initialize();
     expect(initResult.alerts).not.toContainEqual(
       expect.objectContaining({

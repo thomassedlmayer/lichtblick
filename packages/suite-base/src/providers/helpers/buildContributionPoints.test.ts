@@ -120,7 +120,7 @@ describe("buildContributionPoints", () => {
       extensionNamespace: extensionInfo.namespace,
       extensionId: extensionInfo.id,
     });
-    expect(result.messageConverterSchemas).toEqual([]);
+    expect(result.schemaDefinitions).toEqual([]);
     delete (globalThis as any).messageConverter;
   });
 
@@ -143,7 +143,7 @@ describe("buildContributionPoints", () => {
 
     const result = buildContributionPoints(extensionInfo, extensionSource);
 
-    expect(result.messageConverterSchemas).toEqual([
+    expect(result.schemaDefinitions).toEqual([
       {
         ...schemaDefinition,
         extensionNamespace: extensionInfo.namespace,

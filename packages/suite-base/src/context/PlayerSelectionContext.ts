@@ -17,7 +17,7 @@ export type DataSourceFactoryInitializeArgs = {
   file?: File;
   files?: File[];
   params?: Record<string, string | undefined>;
-  schemaDefinitionsByName?: Map<string, SchemaDefinition>;
+  registeredSchemaDefinitionsByName?: Map<string, SchemaDefinition>;
 };
 
 export type DataSourceFactoryType = "file" | "connection" | "sample";
