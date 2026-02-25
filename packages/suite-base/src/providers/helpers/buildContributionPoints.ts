@@ -34,7 +34,7 @@ export function buildContributionPoints(
   // the fully qualified id is the extension name + panel name
   const panels: Record<string, RegisteredPanel> = {};
   const messageConverters: RegisterMessageConverterArgs<unknown>[] = [];
-  const messageConverterSchemas: RegisteredSchemaDefinition[] = [];
+  const schemaDefinitions: RegisteredSchemaDefinition[] = [];
   const panelSettings: ExtensionSettings = {};
   const topicAliasFunctions: ContributionPoints["topicAliasFunctions"] = [];
   const cameraModels: CameraModelsMap = new Map();
@@ -100,7 +100,7 @@ export function buildContributionPoints(
         extensionNamespace: extension.namespace,
         extensionId: extension.id,
       };
-      messageConverterSchemas.push(schemaDefinitionEntry);
+      schemaDefinitions.push(schemaDefinitionEntry);
     },
 
     registerTopicAliases: (aliasFunction: TopicAliasFunction) => {
@@ -130,7 +130,7 @@ export function buildContributionPoints(
   return {
     panels,
     messageConverters,
-    schemaDefinitions: messageConverterSchemas,
+    schemaDefinitions,
     topicAliasFunctions,
     panelSettings,
     cameraModels,

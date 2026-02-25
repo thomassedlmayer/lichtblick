@@ -21,7 +21,7 @@ describe("buildContributionPoints", () => {
 
     expect(result).toHaveProperty("panels", {});
     expect(result).toHaveProperty("messageConverters", []);
-    expect(result).toHaveProperty("messageConverterSchemas", []);
+    expect(result).toHaveProperty("schemaDefinitions", []);
     expect(result).toHaveProperty("topicAliasFunctions", []);
     expect(result).toHaveProperty("panelSettings", {});
     consoleErrorMock.mockRestore();
