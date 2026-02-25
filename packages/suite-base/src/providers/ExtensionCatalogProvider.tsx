@@ -19,7 +19,6 @@ import {
   InstallExtensionsResult,
   LoadExtensionsResult,
   RegisteredSchemaDefinition,
-  SchemaDefinitionEntry,
 } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { buildContributionPoints } from "@lichtblick/suite-base/providers/helpers/buildContributionPoints";
 import {
@@ -31,16 +30,6 @@ import { ExtensionInfo } from "@lichtblick/suite-base/types/Extensions";
 import isDesktopApp from "@lichtblick/suite-base/util/isDesktopApp";
 
 const log = Logger.getLogger(__filename);
-
-function namespacePriority(namespace: Namespace | undefined): number {
-  if (namespace === "local") {
-    return 0;
-  }
-  if (namespace === "org") {
-    return 1;
-  }
-  return 2;
-}
 
 function schemaDefinitionKey(name: string, encoding: string): string {
   return `${name}\n${encoding}`;
@@ -74,87 +63,41 @@ function schemaDefinitionIdentityKey(schema: RegisteredSchemaDefinition): string
   return [
     schema.name,
     schema.encoding,
-    schema.extensionNamespace ?? "",
-    schema.extensionId ?? "",
     schema.data.byteLength.toString(),
     schemaDataFingerprint(schema.data).toString(),
   ].join("\n");
 }
 
-function schemaVariantsEqual(
-  a: RegisteredSchemaDefinition,
-  b: RegisteredSchemaDefinition,
-): boolean {
+function schemaDefinitionsEqual(a: RegisteredSchemaDefinition, b: RegisteredSchemaDefinition): boolean {
   return (
     a.name === b.name &&
     a.encoding === b.encoding &&
-    a.extensionNamespace === b.extensionNamespace &&
-    a.extensionId === b.extensionId &&
     schemasHaveSameData(a.data, b.data)
   );
 }
 
-function schemaEntryToVariant(schema: SchemaDefinitionEntry): RegisteredSchemaDefinition {
-  return {
-    name: schema.name,
-    encoding: schema.encoding,
-    data: schema.data,
-    extensionNamespace: schema.extensionNamespace,
-    extensionId: schema.extensionId,
-  };
-}
-
-function schemaEntryVariants(schema: SchemaDefinitionEntry): RegisteredSchemaDefinition[] {
-  return [schemaEntryToVariant(schema), ...(schema.conflictingSchemaDefinitions ?? [])];
-}
-
-function schemaEntryHasEquivalentVariant(
-  existing: SchemaDefinitionEntry,
-  incoming: RegisteredSchemaDefinition,
-): boolean {
-  return schemaEntryVariants(existing).some((variant) => schemaVariantsEqual(variant, incoming));
-}
-
-function mergeConflictingSchemaDefinitions(
-  winner: SchemaDefinitionEntry,
-  loser: SchemaDefinitionEntry,
-): SchemaDefinitionEntry {
-  const existing = winner.conflictingSchemaDefinitions ?? [];
-  const next = [
-    ...existing,
-    schemaEntryToVariant(loser),
-    ...(loser.conflictingSchemaDefinitions ?? []),
-  ];
-  const deduped = new Map(
-    next.map((schema) => [schemaDefinitionIdentityKey(schema), schema] as const),
-  );
-  return { ...winner, conflictingSchemaDefinitions: Array.from(deduped.values()) };
-}
-
 function mergeSchemaDefinitions(
-  existing: Map<string, SchemaDefinitionEntry>,
-  incoming: readonly SchemaDefinitionEntry[],
-): Map<string, SchemaDefinitionEntry> {
+  existing: Map<string, readonly RegisteredSchemaDefinition[]>,
+  incoming: readonly RegisteredSchemaDefinition[],
+): Map<string, readonly RegisteredSchemaDefinition[]> {
   const updated = new Map(existing);
 
   for (const schema of incoming) {
     const key = schemaDefinitionKey(schema.name, schema.encoding);
-    const current = updated.get(key);
-    if (!current) {
-      updated.set(key, schema);
-      continue;
-    }
-    if (schemaEntryHasEquivalentVariant(current, schemaEntryToVariant(schema))) {
+    const current = updated.get(key) ?? [];
+    if (current.some((variant) => schemaDefinitionsEqual(variant, schema))) {
       continue;
     }
 
-    if (
-      namespacePriority(schema.extensionNamespace) < namespacePriority(current.extensionNamespace)
-    ) {
-      updated.set(key, mergeConflictingSchemaDefinitions(schema, current));
-    } else {
-      updated.set(key, mergeConflictingSchemaDefinitions(current, schema));
+    if (current.length === 0) {
+      updated.set(key, [schema]);
+      continue;
     }
+
+    const next = new Map(
+      [...current, schema].map((candidate) => [schemaDefinitionIdentityKey(candidate), candidate]),
+    );
+    updated.set(key, Array.from(next.values()));
   }
 
   return updated;
@@ -474,7 +417,12 @@ function createExtensionRegistryStore(
           [...installedCameraModels].filter(([, { extensionId }]) => extensionId !== id),
         ),
         installedSchemaDefinitions: new Map(
-          [...installedSchemaDefinitions].filter(([, schema]) => schema.extensionId !== id),
+          [...installedSchemaDefinitions]
+            .map(([key, definitions]) => [
+              key,
+              definitions.filter((schema) => schema.extensionId !== id),
+            ] as const)
+            .filter(([, definitions]) => definitions.length > 0),
         ),
       };
     }

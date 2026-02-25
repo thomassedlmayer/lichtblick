@@ -14,7 +14,6 @@ const log = Logger.getLogger(__filename);
 export type SchemaDefinitionWithSource = SchemaDefinition & {
   extensionId?: string;
   extensionNamespace?: string;
-  conflictingSchemaDefinitions?: Array<SchemaDefinitionWithSource>;
 };
 
 type ResolveDeserializerForTopicArgs = {
@@ -23,7 +22,7 @@ type ResolveDeserializerForTopicArgs = {
   schemaName?: string;
   schemaData?: Uint8Array;
   schemaEncoding?: string;
-  registeredSchemaDefinitionsByName?: Map<string, SchemaDefinition>;
+  registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
 };
 
 export type ResolveDeserializerForTopicResult = {
@@ -110,10 +109,10 @@ function compareSchemaCandidates(
   return 0;
 }
 
-function expandAndSortSchemaCandidates(
-  schema: SchemaDefinitionWithSource,
+function sortSchemaCandidates(
+  schemas: readonly SchemaDefinitionWithSource[],
 ): SchemaDefinitionWithSource[] {
-  return [schema, ...(schema.conflictingSchemaDefinitions ?? [])].sort(compareSchemaCandidates);
+  return [...schemas].sort(compareSchemaCandidates);
 }
 
 export function resolveDeserializerForTopic(
@@ -135,15 +134,19 @@ export function resolveDeserializerForTopic(
 
     if (schemaName != undefined) {
       if (schemaEncoding != undefined) {
-        const schema = registeredSchemaDefinitionsByName?.get(schemaDefinitionKey(schemaName, schemaEncoding));
-        if (schema != undefined) {
-          candidateSchemas = expandAndSortSchemaCandidates(schema as SchemaDefinitionWithSource);
+        const schemas = registeredSchemaDefinitionsByName?.get(
+          schemaDefinitionKey(schemaName, schemaEncoding),
+        );
+        if (schemas != undefined) {
+          candidateSchemas = sortSchemaCandidates(schemas as SchemaDefinitionWithSource[]);
         }
       } else {
         for (const preferredEncoding of preferredSchemaEncodings(messageEncoding)) {
-          const schema = registeredSchemaDefinitionsByName?.get(schemaDefinitionKey(schemaName, preferredEncoding));
-          if (schema != undefined) {
-            candidateSchemas = expandAndSortSchemaCandidates(schema as SchemaDefinitionWithSource);
+          const schemas = registeredSchemaDefinitionsByName?.get(
+            schemaDefinitionKey(schemaName, preferredEncoding),
+          );
+          if (schemas != undefined) {
+            candidateSchemas = sortSchemaCandidates(schemas as SchemaDefinitionWithSource[]);
             break;
           }
         }
@@ -152,9 +155,9 @@ export function resolveDeserializerForTopic(
           const allSchemasForName =
             registeredSchemaDefinitionsByName == undefined
               ? []
-              : Array.from(registeredSchemaDefinitionsByName.values()).filter(
-                  (registeredSchema) => registeredSchema.name === schemaName,
-                );
+              : Array.from(registeredSchemaDefinitionsByName.values())
+                  .flat()
+                  .filter((registeredSchema) => registeredSchema.name === schemaName);
           if (allSchemasForName.length === 1) {
             candidateSchemas = [allSchemasForName[0]! as SchemaDefinitionWithSource];
           }
@@ -206,9 +209,9 @@ export function resolveDeserializerForTopic(
           throw new Error(`No compatible registered schema definition found for ${schemaName}.`);
         }
       } else if (registeredSchemaDefinitionsByName != undefined) {
-        const schemaVariants = Array.from(registeredSchemaDefinitionsByName.values()).filter(
-          (registeredSchema) => registeredSchema.name === schemaName,
-        );
+        const schemaVariants = Array.from(registeredSchemaDefinitionsByName.values())
+          .flat()
+          .filter((registeredSchema) => registeredSchema.name === schemaName);
         const registeredSchemaVariants = Array.from(
           new Set(schemaVariants.map((registeredSchema) => registeredSchema.encoding)),
         );

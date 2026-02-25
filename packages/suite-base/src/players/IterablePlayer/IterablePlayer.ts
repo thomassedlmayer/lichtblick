@@ -105,7 +105,7 @@ export type IterablePlayerOptions = {
   // Max. time that messages will be buffered ahead for smoother playback. (default: 10sec)
   readAheadDuration?: Time;
 
-  registeredSchemaDefinitionsByName?: Map<string, SchemaDefinition>;
+  registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
 };
 
 type IterablePlayerState =
@@ -189,7 +189,7 @@ export class IterablePlayer implements Player {
   #blockLoadingProcess?: Promise<void>;
 
   #messageRangeSource?: IDeserializedIterableSource;
-  #registeredSchemaDefinitionsByName?: Map<string, SchemaDefinition>;
+  #registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
 
   #queueEmitState: ReturnType<typeof debouncePromise>;
 

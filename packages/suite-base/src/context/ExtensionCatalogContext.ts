@@ -90,7 +90,7 @@ export type ExtensionCatalog = Immutable<{
   installedTopicAliasFunctions: undefined | TopicAliasFunctions;
   installedCameraModels: CameraModelsMap;
   panelSettings: undefined | ExtensionSettings;
-  installedSchemaDefinitions: Map<string, SchemaDefinitionEntry>;
+  installedSchemaDefinitions: Map<string, ReadonlyArray<RegisteredSchemaDefinition>>;
 }>;
 
 export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
@@ -103,20 +103,10 @@ export type RegisteredSchemaDefinition = SchemaDefinition & {
   extensionId?: string;
 };
 
-export type SchemaDefinitionEntry = RegisteredSchemaDefinition & {
-  conflictingSchemaDefinitions?: ReadonlyArray<{
-    name: string;
-    encoding: string;
-    data: Uint8Array;
-    extensionNamespace?: Namespace;
-    extensionId?: string;
-  }>;
-};
-
 export type ContributionPoints = {
   panels: Record<string, RegisteredPanel>;
   messageConverters: MessageConverter[];
-  schemaDefinitions: SchemaDefinitionEntry[];
+  schemaDefinitions: RegisteredSchemaDefinition[];
   topicAliasFunctions: TopicAliasFunctions;
   panelSettings: ExtensionSettings;
   cameraModels: CameraModelsMap;

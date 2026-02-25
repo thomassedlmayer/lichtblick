@@ -753,12 +753,14 @@ describe("ExtensionCatalogProvider", () => {
 
       expect(result.current.installedSchemaDefinitions.size).toBe(1);
       expect(result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf")).toEqual(
-        expect.objectContaining({
-          name: "osi3.sensorview",
-          encoding: "protobuf",
-          data: new Uint8Array([1, 2, 3, 4]),
-          extensionId: extensionInfo.id,
-        }),
+        [
+          expect.objectContaining({
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: new Uint8Array([1, 2, 3, 4]),
+            extensionId: extensionInfo.id,
+          }),
+        ],
       );
     });
 
@@ -794,20 +796,22 @@ describe("ExtensionCatalogProvider", () => {
 
       expect(result.current.installedSchemaDefinitions.size).toBe(1);
       expect(result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf")).toEqual(
-        expect.objectContaining({
-          name: "osi3.sensorview",
-          encoding: "protobuf",
-          extensionId: extensionInfo.id,
-          conflictingSchemaDefinitions: [
-            {
-              name: "osi3.sensorview",
-              encoding: "protobuf",
-              data: new Uint8Array([4, 3, 2, 1]),
-              extensionId: `${extensionInfo.id}-other`,
-              extensionNamespace: extensionInfo.namespace,
-            },
-          ],
-        }),
+        [
+          expect.objectContaining({
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: new Uint8Array([1, 2, 3, 4]),
+            extensionId: extensionInfo.id,
+            extensionNamespace: extensionInfo.namespace,
+          }),
+          {
+            name: "osi3.sensorview",
+            encoding: "protobuf",
+            data: new Uint8Array([4, 3, 2, 1]),
+            extensionId: `${extensionInfo.id}-other`,
+            extensionNamespace: extensionInfo.namespace,
+          },
+        ],
       );
     });
 
@@ -843,7 +847,14 @@ describe("ExtensionCatalogProvider", () => {
 
       const schema = result.current.installedSchemaDefinitions.get("osi3.sensorview\nprotobuf");
       expect(schema).toBeDefined();
-      expect(schema?.conflictingSchemaDefinitions).toEqual([
+      expect(schema).toEqual([
+        {
+          name: "osi3.sensorview",
+          encoding: "protobuf",
+          data: new Uint8Array([1, 2, 3, 4]),
+          extensionId: extensionInfo.id,
+          extensionNamespace: extensionInfo.namespace,
+        },
         {
           name: "osi3.sensorview",
           encoding: "protobuf",
