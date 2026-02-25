@@ -7,14 +7,17 @@
 
 import Logger from "@lichtblick/log";
 import { parseChannel, SchemaDefinition } from "@lichtblick/mcap-support";
+import type { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { Initialization } from "@lichtblick/suite-base/players/IterablePlayer/IIterableSource";
 
 const log = Logger.getLogger(__filename);
 
 export type SchemaDefinitionWithSource = SchemaDefinition & {
-  extensionId?: string;
-  extensionNamespace?: string;
-  label?: string;
+  sources?: ReadonlyArray<{
+    extensionNamespace?: string;
+    extensionId?: string;
+    label?: string;
+  }>;
 };
 
 type ResolveDeserializerForTopicArgs = {
@@ -23,7 +26,7 @@ type ResolveDeserializerForTopicArgs = {
   schemaName?: string;
   schemaData?: Uint8Array;
   schemaEncoding?: string;
-  registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
+  registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
 };
 
 export type ResolveDeserializerForTopicResult = {
@@ -56,47 +59,35 @@ function preferredSchemaEncodings(messageEncoding: string): string[] {
 
 function describeSchemaSource(schema: SchemaDefinition): string {
   const schemaWithSource = schema as SchemaDefinitionWithSource;
-  const id = schemaWithSource.extensionId;
-  const namespace = schemaWithSource.extensionNamespace;
-  const label = schemaWithSource.label;
-
-  let source = "unknown";
-  if (id != undefined && namespace != undefined) {
-    source = `${namespace}:${id}`;
-  } else if (id != undefined) {
-    source = id;
-  } else if (namespace != undefined) {
-    source = namespace;
+  const sources = schemaWithSource.sources;
+  if (sources == undefined || sources.length === 0) {
+    return "unknown";
   }
 
-  return label != undefined && label.length > 0 ? `${source} ('${label}')` : source;
-}
+  return sources
+    .map((source) => {
+      const id = source.extensionId;
+      const namespace = source.extensionNamespace;
+      const label = source.label;
 
-function namespacePriority(namespace: string | undefined): number {
-  if (namespace === "local") {
-    return 0;
-  }
-  if (namespace === "org") {
-    return 1;
-  }
-  return 2;
+      let sourceName = "unknown";
+      if (id != undefined && namespace != undefined) {
+        sourceName = `${namespace}:${id}`;
+      } else if (id != undefined) {
+        sourceName = id;
+      } else if (namespace != undefined) {
+        sourceName = namespace;
+      }
+
+      return label != undefined && label.length > 0 ? `${sourceName} ('${label}')` : sourceName;
+    })
+    .join(", ");
 }
 
 function compareSchemaCandidates(
   a: SchemaDefinitionWithSource,
   b: SchemaDefinitionWithSource,
 ): number {
-  const namespaceOrder =
-    namespacePriority(a.extensionNamespace) - namespacePriority(b.extensionNamespace);
-  if (namespaceOrder !== 0) {
-    return namespaceOrder;
-  }
-
-  const idOrder = (a.extensionId ?? "").localeCompare(b.extensionId ?? "");
-  if (idOrder !== 0) {
-    return idOrder;
-  }
-
   const lengthOrder = a.data.byteLength - b.data.byteLength;
   if (lengthOrder !== 0) {
     return lengthOrder;

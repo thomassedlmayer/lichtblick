@@ -146,9 +146,16 @@ describe("buildContributionPoints", () => {
 
     expect(result.schemaDefinitions).toEqual([
       {
-        ...schemaDefinition,
-        extensionNamespace: extensionInfo.namespace,
-        extensionId: extensionInfo.id,
+        name: schemaDefinition.name,
+        encoding: schemaDefinition.encoding,
+        data: schemaDefinition.data,
+        sources: [
+          {
+            extensionNamespace: extensionInfo.namespace,
+            extensionId: extensionInfo.id,
+            label: schemaDefinition.label,
+          },
+        ],
       },
     ]);
     delete (globalThis as any).schemaDefinition;

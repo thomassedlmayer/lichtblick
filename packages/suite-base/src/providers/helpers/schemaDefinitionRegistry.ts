@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (C) 2023-2026 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
 // SPDX-License-Identifier: MPL-2.0
 
-import { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
+import {
+  RegisteredSchemaDefinition,
+  RegisteredSchemaDefinitionSource,
+} from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 
 export function schemaDefinitionKey(name: string, encoding: string): string {
   return `${name}\n${encoding}`;
@@ -40,8 +43,35 @@ function schemaDefinitionIdentityKey(schema: RegisteredSchemaDefinition): string
   ].join("\n");
 }
 
+function sourceIdentityKey(source: RegisteredSchemaDefinitionSource): string {
+  return [source.extensionNamespace ?? "", source.extensionId ?? "", source.label ?? ""].join("\n");
+}
+
+function mergeSchemaSources(
+  a: readonly RegisteredSchemaDefinitionSource[],
+  b: readonly RegisteredSchemaDefinitionSource[],
+): RegisteredSchemaDefinitionSource[] {
+  const merged = [...a, ...b];
+  const deduped = new Map(merged.map((source) => [sourceIdentityKey(source), source]));
+  return Array.from(deduped.values());
+}
+
 function schemaDefinitionsEqual(a: RegisteredSchemaDefinition, b: RegisteredSchemaDefinition): boolean {
   return a.name === b.name && a.encoding === b.encoding && schemasHaveSameData(a.data, b.data);
+}
+
+function mergeEquivalentSchemaDefinitions(
+  existing: RegisteredSchemaDefinition,
+  incoming: RegisteredSchemaDefinition,
+): RegisteredSchemaDefinition {
+  const mergedSources = mergeSchemaSources(
+    existing.sources,
+    incoming.sources,
+  );
+  return {
+    ...existing,
+    sources: mergedSources,
+  };
 }
 
 export function mergeSchemaDefinitions(
@@ -53,7 +83,12 @@ export function mergeSchemaDefinitions(
   for (const schema of incoming) {
     const key = schemaDefinitionKey(schema.name, schema.encoding);
     const current = updated.get(key) ?? [];
-    if (current.some((variant) => schemaDefinitionsEqual(variant, schema))) {
+    const equivalentIndex = current.findIndex((variant) => schemaDefinitionsEqual(variant, schema));
+    if (equivalentIndex >= 0) {
+      const equivalent = current[equivalentIndex]!;
+      const next = [...current];
+      next[equivalentIndex] = mergeEquivalentSchemaDefinitions(equivalent, schema);
+      updated.set(key, next);
       continue;
     }
 
@@ -69,4 +104,19 @@ export function mergeSchemaDefinitions(
   }
 
   return updated;
+}
+
+export function removeSchemaDefinitionSource(
+  schema: RegisteredSchemaDefinition,
+  extensionId: string,
+): RegisteredSchemaDefinition | undefined {
+  const remainingSources = schema.sources.filter((source) => source.extensionId !== extensionId);
+  if (remainingSources.length === 0) {
+    return undefined;
+  }
+
+  return {
+    ...schema,
+    sources: remainingSources,
+  };
 }
