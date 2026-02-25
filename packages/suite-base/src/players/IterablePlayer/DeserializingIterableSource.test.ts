@@ -304,6 +304,194 @@ describe("DeserializingIterableSources", () => {
     });
   });
 
+  it("does not report a warning when multiple registered encodings exist for one schema name", async () => {
+    const source = new TestSource();
+    source.initialize = async () => ({
+      start: { sec: 0, nsec: 0 },
+      end: { sec: 10, nsec: 0 },
+      topics: [
+        {
+          name: "json_topic",
+          schemaName: "some_type",
+          messageEncoding: "json",
+        },
+      ],
+      topicStats: new Map(),
+      profile: undefined,
+      alerts: [],
+      datatypes: new Map(),
+      publishersByTopic: new Map(),
+    });
+
+    const schemaDefinitionsByName = new Map([
+      [
+        "some_type\njsonschema",
+        {
+          name: "some_type",
+          encoding: "jsonschema",
+          data: textEncoder.encode(
+            JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
+          ),
+          extensionId: "ext-a",
+          extensionNamespace: "local",
+        },
+      ],
+      [
+        "some_type\nprotobuf",
+        {
+          name: "some_type",
+          encoding: "protobuf",
+          data: textEncoder.encode("message SomeType {}"),
+          extensionId: "ext-b",
+          extensionNamespace: "org",
+        },
+      ],
+    ]);
+
+    const deserSource = new DeserializingIterableSource(source, schemaDefinitionsByName);
+    const initResult = await deserSource.initialize();
+
+    expect(initResult.alerts).toContainEqual(
+      expect.objectContaining({
+        severity: "info",
+        message: expect.stringContaining(
+          "Using registered schema definition for some_type (jsonschema) from local:ext-a.",
+        ),
+      }),
+    );
+    expect(initResult.alerts).not.toContainEqual(
+      expect.objectContaining({
+        severity: "warn",
+      }),
+    );
+  });
+
+  it("reports a warning when multiple same-encoding registered schemas conflict", async () => {
+    const source = new TestSource();
+    source.initialize = async () => ({
+      start: { sec: 0, nsec: 0 },
+      end: { sec: 10, nsec: 0 },
+      topics: [
+        {
+          name: "json_topic",
+          schemaName: "some_type",
+          messageEncoding: "json",
+          schemaEncoding: "jsonschema",
+        },
+      ],
+      topicStats: new Map(),
+      profile: undefined,
+      alerts: [],
+      datatypes: new Map(),
+      publishersByTopic: new Map(),
+    });
+
+    const schemaDefinitionsByName = new Map([
+      [
+        "some_type\njsonschema",
+        {
+          name: "some_type",
+          encoding: "jsonschema",
+          data: textEncoder.encode(
+            JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
+          ),
+          extensionId: "ext-a",
+          extensionNamespace: "local",
+          conflictingSchemaDefinitions: [
+            {
+              name: "some_type",
+              encoding: "jsonschema",
+              data: textEncoder.encode(
+                JSON.stringify({ type: "object", properties: { foo: { type: "number" } } }),
+              ),
+              extensionId: "ext-b",
+              extensionNamespace: "org",
+            },
+          ],
+        },
+      ],
+    ]);
+
+    const deserSource = new DeserializingIterableSource(source, schemaDefinitionsByName);
+    const initResult = await deserSource.initialize();
+    expect(initResult.alerts).toContainEqual(
+      expect.objectContaining({
+        severity: "warn",
+        message: expect.stringContaining("Using registered schema definition from local:ext-a."),
+      }),
+    );
+  });
+
+  it("tries alternate registered schemas for same name+encoding before MCAP fallback", async () => {
+    const source = new TestSource();
+    source.initialize = async () => ({
+      start: { sec: 0, nsec: 0 },
+      end: { sec: 10, nsec: 0 },
+      topics: [
+        {
+          name: "json_topic",
+          schemaName: "some_type",
+          messageEncoding: "json",
+          schemaEncoding: "jsonschema",
+          // Invalid MCAP schema to ensure we do not fall back to MCAP in this test.
+          schemaData: textEncoder.encode("invalid mcap schema"),
+        },
+      ],
+      topicStats: new Map(),
+      profile: undefined,
+      alerts: [],
+      datatypes: new Map(),
+      publishersByTopic: new Map(),
+    });
+
+    const schemaDefinitionsByName = new Map([
+      [
+        "some_type\njsonschema",
+        {
+          name: "some_type",
+          encoding: "jsonschema",
+          data: textEncoder.encode("invalid registered schema"),
+          extensionId: "ext-a",
+          extensionNamespace: "local",
+          conflictingSchemaDefinitions: [
+            {
+              name: "some_type",
+              encoding: "jsonschema",
+              data: textEncoder.encode(
+                JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
+              ),
+              extensionId: "ext-a",
+              extensionNamespace: "local",
+            },
+          ],
+        },
+      ],
+    ]);
+    const deserSource = new DeserializingIterableSource(source, schemaDefinitionsByName);
+    const initResult = await deserSource.initialize();
+    expect(initResult.alerts).not.toContainEqual(
+      expect.objectContaining({
+        message: "Falling back to MCAP schema definition.",
+      }),
+    );
+
+    source.messageIterator = defaultMessageIterator;
+    const messageIterator = deserSource.messageIterator({
+      topics: new Map([["json_topic", { topic: "json_topic" }]]),
+    });
+
+    await expect(messageIterator.next()).resolves.toMatchObject({
+      done: false,
+      value: {
+        type: "message-event",
+        msgEvent: {
+          topic: "json_topic",
+          message: { foo: "bar", iteration: 0 },
+        },
+      },
+    });
+  });
+
   it("handles deserialization errors for backfill messages", async () => {
     const source = new TestSource();
     const deserSource = new DeserializingIterableSource(source);

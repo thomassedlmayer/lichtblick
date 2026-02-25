@@ -94,14 +94,9 @@ describe("buildContributionPoints", () => {
 
   it("should register a message converter", () => {
     const extensionInfo = ExtensionBuilder.extensionInfo();
-    const fromSchemaName = BasicBuilder.string();
     const messageConverter: MessageConverter = {
-      fromSchemaName,
+      fromSchemaName: BasicBuilder.string(),
       toSchemaName: BasicBuilder.string(),
-      schemaDefinitionsByEncoding: {
-        protobuf: new Uint8Array([1, 2, 3]),
-        flatbuffer: new Uint8Array([4, 5, 6]),
-      },
       panelSettings: {},
       extensionId: extensionInfo.id,
       converter: jest.fn(),
@@ -125,23 +120,37 @@ describe("buildContributionPoints", () => {
       extensionNamespace: extensionInfo.namespace,
       extensionId: extensionInfo.id,
     });
+    expect(result.messageConverterSchemas).toEqual([]);
+    delete (globalThis as any).messageConverter;
+  });
+
+  it("should register a schema definition", () => {
+    const extensionInfo = ExtensionBuilder.extensionInfo();
+    const schemaDefinition = {
+      name: BasicBuilder.string(),
+      encoding: "protobuf",
+      data: new Uint8Array([1, 2, 3]),
+    };
+
+    (globalThis as any).schemaDefinition = schemaDefinition;
+    const extensionSource = `
+      module.exports = {
+        activate: (ctx) => {
+          ctx.registerSchemaDefinition(globalThis.schemaDefinition);
+        }
+      };
+    `;
+
+    const result = buildContributionPoints(extensionInfo, extensionSource);
+
     expect(result.messageConverterSchemas).toEqual([
       {
-        name: fromSchemaName,
-        encoding: "protobuf",
-        data: new Uint8Array([1, 2, 3]),
-        extensionNamespace: extensionInfo.namespace,
-        extensionId: extensionInfo.id,
-      },
-      {
-        name: fromSchemaName,
-        encoding: "flatbuffer",
-        data: new Uint8Array([4, 5, 6]),
+        ...schemaDefinition,
         extensionNamespace: extensionInfo.namespace,
         extensionId: extensionInfo.id,
       },
     ]);
-    delete (globalThis as any).messageConverter;
+    delete (globalThis as any).schemaDefinition;
   });
 
   it("should register a message converter with panel settings", () => {

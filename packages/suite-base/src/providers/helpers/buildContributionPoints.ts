@@ -8,6 +8,7 @@ import { CameraModelsMap } from "@lichtblick/den/image/types";
 import Logger from "@lichtblick/log";
 import {
   RegisterMessageConverterArgs,
+  RegisterSchemaDefinitionArgs,
   ExtensionContext,
   TopicAliasFunction,
   ExtensionModule,
@@ -83,23 +84,22 @@ export function buildContributionPoints(
         extensionId: extension.id,
       } as MessageConverter);
 
-      if (messageConverter.schemaDefinitionsByEncoding) {
-        for (const [encoding, data] of Object.entries(messageConverter.schemaDefinitionsByEncoding)) {
-          messageConverterSchemas.push({
-            name: messageConverter.fromSchemaName,
-            encoding,
-            data,
-            extensionNamespace: extension.namespace,
-            extensionId: extension.id,
-          });
-        }
-      }
-
       const converterSettings = _.mapValues(messageConverter.panelSettings, (settings) => ({
         [messageConverter.fromSchemaName]: settings,
       }));
 
       _.merge(panelSettings, converterSettings);
+    },
+
+    registerSchemaDefinition: (schemaDefinition: RegisterSchemaDefinitionArgs) => {
+      const schemaDefinitionEntry: SchemaDefinitionEntry = {
+        name: schemaDefinition.name,
+        encoding: schemaDefinition.encoding,
+        data: schemaDefinition.data,
+        extensionNamespace: extension.namespace,
+        extensionId: extension.id,
+      };
+      messageConverterSchemas.push(schemaDefinitionEntry);
     },
 
     registerTopicAliases: (aliasFunction: TopicAliasFunction) => {

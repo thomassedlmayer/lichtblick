@@ -53,6 +53,74 @@ function preferredSchemaEncodings(messageEncoding: string): string[] {
   return [];
 }
 
+type SchemaDefinitionWithSource = SchemaDefinition & {
+  extensionId?: string;
+  extensionNamespace?: string;
+  conflictingSchemaDefinitions?: Array<SchemaDefinitionWithSource>;
+};
+
+function describeSchemaSource(schema: SchemaDefinition): string {
+  const schemaWithSource = schema as SchemaDefinitionWithSource;
+  const id = schemaWithSource.extensionId;
+  const namespace = schemaWithSource.extensionNamespace;
+
+  if (id != undefined && namespace != undefined) {
+    return `${namespace}:${id}`;
+  }
+  if (id != undefined) {
+    return id;
+  }
+  if (namespace != undefined) {
+    return namespace;
+  }
+  return "unknown";
+}
+
+function namespacePriority(namespace: string | undefined): number {
+  if (namespace === "local") {
+    return 0;
+  }
+  if (namespace === "org") {
+    return 1;
+  }
+  return 2;
+}
+
+function compareSchemaCandidates(
+  a: SchemaDefinitionWithSource,
+  b: SchemaDefinitionWithSource,
+): number {
+  const namespaceOrder =
+    namespacePriority(a.extensionNamespace) - namespacePriority(b.extensionNamespace);
+  if (namespaceOrder !== 0) {
+    return namespaceOrder;
+  }
+
+  const idOrder = (a.extensionId ?? "").localeCompare(b.extensionId ?? "");
+  if (idOrder !== 0) {
+    return idOrder;
+  }
+
+  const lengthOrder = a.data.byteLength - b.data.byteLength;
+  if (lengthOrder !== 0) {
+    return lengthOrder;
+  }
+
+  for (let i = 0; i < a.data.byteLength; i++) {
+    const byteOrder = (a.data[i] ?? 0) - (b.data[i] ?? 0);
+    if (byteOrder !== 0) {
+      return byteOrder;
+    }
+  }
+  return 0;
+}
+
+function expandAndSortSchemaCandidates(
+  schema: SchemaDefinitionWithSource,
+): SchemaDefinitionWithSource[] {
+  return [schema, ...(schema.conflictingSchemaDefinitions ?? [])].sort(compareSchemaCandidates);
+}
+
 /**
  * Iterable source that deserializes messages from a raw iterable source (messages are Uint8Arrays).
  */
@@ -93,57 +161,83 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
 
       if (this.#deserializersByTopic[topic] == undefined) {
         let usedRegistrySchema = false;
-        let resolvedSchemaEncoding: string | undefined;
-        let resolvedSchemaData: Uint8Array | undefined;
+        let selectedRegistrySchema: SchemaDefinitionWithSource | undefined;
+        let selectedRegistryCandidates: SchemaDefinitionWithSource[] = [];
         try {
           if (messageEncoding == undefined) {
             throw new Error(`Unspecified message encoding for topic ${topic}`);
           }
 
-          resolvedSchemaData = schemaData;
-          resolvedSchemaEncoding = schemaEncoding;
+          let candidateSchemas: SchemaDefinitionWithSource[] = [];
 
           if (schemaName != undefined) {
-            let registrySchema: SchemaDefinition | undefined;
             if (schemaEncoding != undefined) {
-              registrySchema = this.#schemaDefinitionsByName?.get(
+              const schema = this.#schemaDefinitionsByName?.get(
                 schemaDefinitionKey(schemaName, schemaEncoding),
               );
+              if (schema != undefined) {
+                candidateSchemas = expandAndSortSchemaCandidates(
+                  schema as SchemaDefinitionWithSource,
+                );
+              }
             } else {
               for (const preferredEncoding of preferredSchemaEncodings(messageEncoding)) {
-                registrySchema = this.#schemaDefinitionsByName?.get(
+                const schema = this.#schemaDefinitionsByName?.get(
                   schemaDefinitionKey(schemaName, preferredEncoding),
                 );
-                if (registrySchema != undefined) {
+                if (schema != undefined) {
+                  candidateSchemas = expandAndSortSchemaCandidates(
+                    schema as SchemaDefinitionWithSource,
+                  );
                   break;
+                }
+              }
+
+              if (candidateSchemas.length === 0) {
+                const allSchemasForName =
+                  this.#schemaDefinitionsByName == undefined
+                    ? []
+                    : Array.from(this.#schemaDefinitionsByName.values()).filter(
+                        (registeredSchema) => registeredSchema.name === schemaName,
+                      );
+                if (allSchemasForName.length === 1) {
+                  candidateSchemas = [allSchemasForName[0]! as SchemaDefinitionWithSource];
                 }
               }
             }
 
-            if (registrySchema == undefined) {
-              const variants =
-                this.#schemaDefinitionsByName == undefined
-                  ? []
-                  : Array.from(this.#schemaDefinitionsByName.values()).filter(
-                      (registeredSchema) => registeredSchema.name === schemaName,
-                    );
-              if (variants.length === 1) {
-                registrySchema = variants[0];
+            if (candidateSchemas.length > 0) {
+              selectedRegistryCandidates = candidateSchemas;
+              for (const candidateSchema of candidateSchemas) {
+                try {
+                  const { deserialize } = parseChannel({
+                    messageEncoding,
+                    schema: {
+                      name: schemaName,
+                      encoding: candidateSchema.encoding,
+                      data: candidateSchema.data,
+                    },
+                  });
+                  this.#deserializersByTopic[topic] = deserialize;
+                  selectedRegistrySchema = candidateSchema;
+                  selectedRegistryCandidates = candidateSchemas;
+                  usedRegistrySchema = true;
+                  break;
+                } catch {
+                  // Try the next registered schema candidate.
+                }
               }
-            }
-
-            if (registrySchema != undefined) {
-              // Prefer the registered schema definition (e.g. from converters) over MCAP-contained schema
-              resolvedSchemaEncoding = registrySchema.encoding;
-              resolvedSchemaData = registrySchema.data;
-              usedRegistrySchema = true;
+              if (!usedRegistrySchema) {
+                throw new Error(
+                  `No compatible registered schema definition found for ${schemaName}.`,
+                );
+              }
             } else if (this.#schemaDefinitionsByName != undefined) {
+              const schemaVariants = Array.from(this.#schemaDefinitionsByName.values()).filter(
+                (registeredSchema) => registeredSchema.name === schemaName,
+              );
               const registeredSchemaVariants = Array.from(
-                new Set(
-                  Array.from(this.#schemaDefinitionsByName.values())
-                    .filter((registeredSchema) => registeredSchema.name === schemaName)
-                    .map((registeredSchema) => registeredSchema.encoding),
-                ),
+                new Set(schemaVariants.map((registeredSchema) => registeredSchema.encoding)),
               );
               log.info("No registered schema definition found for topic schema", {
                 topic,
@@ -153,49 +247,25 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
             }
           }
 
-          const schema =
-            schemaName != undefined &&
-            resolvedSchemaData != undefined &&
-            resolvedSchemaEncoding != undefined
-              ? {
-                  name: schemaName,
-                  encoding: resolvedSchemaEncoding,
-                  data: resolvedSchemaData,
-                }
-              : undefined;
+          if (usedRegistrySchema && selectedRegistrySchema != undefined) {
+            alerts.push({
+              severity: "info",
+              message: `Using registered schema definition for ${schemaName} (${selectedRegistrySchema.encoding}) from ${describeSchemaSource(
+                selectedRegistrySchema,
+              )}.`,
+            });
 
-          if (schemaName != undefined) {
-            if (usedRegistrySchema) {
-              log.info("Using registered schema definition for topic", {
-                topic,
-                schemaName,
-                schemaEncoding: resolvedSchemaEncoding,
-                hasSchemaData: resolvedSchemaData != undefined,
-                mcapSchemaEncoding: schemaEncoding,
-                mcapHasSchemaData: schemaData != undefined,
-                note:
-                  schemaEncoding != undefined || schemaData != undefined
-                    ? "Registered schema definition prioritized over MCAP."
-                    : "Registered schema definition used (no MCAP schema provided).",
-              });
-            } else if (schemaData != undefined || schemaEncoding != undefined) {
-              log.info("Using MCAP schema definition for topic", {
-                topic,
-                schemaName,
-                schemaEncoding,
-                hasSchemaData: schemaData != undefined,
+            if (selectedRegistryCandidates.length > 1) {
+              alerts.push({
+                severity: "warn",
+                message: `Using registered schema definition from ${describeSchemaSource(selectedRegistrySchema)}.`,
+                error: Error(
+                  `Multiple registered schema definitions found for ${schemaName} (${selectedRegistrySchema.encoding}).`,
+                ),
               });
             }
-          }
-
-          let deserialize: ((data: ArrayBufferView) => unknown) | undefined;
-          try {
-            ({ deserialize } = parseChannel({
-              messageEncoding,
-              schema,
-            }));
-          } catch (error) {
-            const mcapSchema =
+          } else {
+            const fallbackSchema =
               schemaName != undefined && schemaData != undefined && schemaEncoding != undefined
                 ? {
                     name: schemaName,
@@ -204,54 +274,65 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
                   }
                 : undefined;
 
-            if (!usedRegistrySchema || mcapSchema == undefined) {
-              throw error;
-            }
-
-            log.warn("Failed to use registered schema definition for topic, trying MCAP schema", {
-              topic,
-              schemaName,
-              registeredSchemaEncoding: resolvedSchemaEncoding,
-              mcapSchemaEncoding: schemaEncoding,
-            });
-
-            ({ deserialize } = parseChannel({
+            const { deserialize } = parseChannel({
               messageEncoding,
-              schema: mcapSchema,
-            }));
-
-            alerts.push({
-              severity: "warn",
-              message: `Falling back to MCAP schema definition.`,
-              error: Error(`Failed to use registered schema definition for ${schemaName}.`),
+              schema: fallbackSchema,
             });
-          }
+            this.#deserializersByTopic[topic] = deserialize;
 
-          this.#deserializersByTopic[topic] = deserialize!;
-        } catch (error) {
-          if (schemaName != undefined && usedRegistrySchema) {
-            log.error(
-              "Failed to use registered schema definition for topic",
-              {
+            if (
+              schemaName != undefined &&
+              (schemaData != undefined || schemaEncoding != undefined)
+            ) {
+              log.info("Using MCAP schema definition for topic", {
                 topic,
                 schemaName,
-                schemaEncoding: resolvedSchemaEncoding,
-                hasSchemaData: resolvedSchemaData != undefined,
-              },
-              error,
-            );
+                schemaEncoding,
+                hasSchemaData: schemaData != undefined,
+              });
+            }
+          }
+        } catch (error) {
+          if (schemaName != undefined && selectedRegistryCandidates.length > 0) {
+            const mcapSchema =
+              schemaData != undefined && schemaEncoding != undefined
+                ? {
+                    name: schemaName,
+                    encoding: schemaEncoding,
+                    data: schemaData,
+                  }
+                : undefined;
+            if (mcapSchema != undefined) {
+              try {
+                const { deserialize } = parseChannel({
+                  messageEncoding: messageEncoding!,
+                  schema: mcapSchema,
+                });
+                this.#deserializersByTopic[topic] = deserialize;
+                log.warn(
+                  "Failed to use registered schema definition for topic, trying MCAP schema",
+                  {
+                    topic,
+                    schemaName,
+                    mcapSchemaEncoding: schemaEncoding,
+                  },
+                );
+                alerts.push({
+                  severity: "warn",
+                  message: `Falling back to MCAP schema definition.`,
+                  error: Error(`Failed to use registered schema definition for ${schemaName}.`),
+                });
+                continue;
+              } catch {
+                // Continue to the generic error path if MCAP fallback is also invalid.
+              }
+            }
           }
           this.#failedTopics.add(topic);
-          // This should in practice never happen as the underlying source filters out invalid topics
           alerts.push({
             severity: "error",
             message: `Error in topic ${topic}`,
-            error:
-              schemaName != undefined && usedRegistrySchema
-                ? new Error(
-                    `Registered schema definition for ${schemaName} is incompatible or invalid. ${error.message}`,
-                  )
-                : error,
+            error: error as Error,
           });
         }
       }
