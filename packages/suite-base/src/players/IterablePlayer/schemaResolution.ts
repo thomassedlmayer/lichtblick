@@ -27,7 +27,7 @@ type ResolveDeserializerForTopicArgs = {
   schemaName?: string;
   schemaData?: Uint8Array;
   schemaEncoding?: string;
-  registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
+  registeredSchemaDefinitionsByKey?: Map<string, readonly RegisteredSchemaDefinition[]>;
 };
 
 export type ResolveDeserializerForTopicResult = {
@@ -124,7 +124,7 @@ export function resolveDeserializerForTopic(
     schemaName,
     schemaData,
     schemaEncoding,
-    registeredSchemaDefinitionsByName,
+    registeredSchemaDefinitionsByKey,
   } = args;
   const alerts: Initialization["alerts"] = [];
 
@@ -141,7 +141,7 @@ export function resolveDeserializerForTopic(
 
     if (schemaName != undefined) {
       if (schemaEncoding != undefined) {
-        const schemas = registeredSchemaDefinitionsByName?.get(
+        const schemas = registeredSchemaDefinitionsByKey?.get(
           schemaDefinitionKey(schemaName, schemaEncoding),
         );
         if (schemas != undefined) {
@@ -149,7 +149,7 @@ export function resolveDeserializerForTopic(
         }
       } else {
         for (const preferredEncoding of preferredSchemaEncodings(messageEncoding)) {
-          const schemas = registeredSchemaDefinitionsByName?.get(
+          const schemas = registeredSchemaDefinitionsByKey?.get(
             schemaDefinitionKey(schemaName, preferredEncoding),
           );
           if (schemas != undefined) {
@@ -160,9 +160,9 @@ export function resolveDeserializerForTopic(
 
         if (candidateSchemas.length === 0) {
           const allSchemasForName =
-            registeredSchemaDefinitionsByName == undefined
+            registeredSchemaDefinitionsByKey == undefined
               ? []
-              : Array.from(registeredSchemaDefinitionsByName.values())
+              : Array.from(registeredSchemaDefinitionsByKey.values())
                   .flat()
                   .filter((registeredSchema) => registeredSchema.name === schemaName);
           if (allSchemasForName.length === 1) {
@@ -214,8 +214,8 @@ export function resolveDeserializerForTopic(
         if (!usedRegistrySchema) {
           throw new Error(`No compatible registered schema definition found for ${schemaName}.`);
         }
-      } else if (registeredSchemaDefinitionsByName != undefined) {
-        const schemaVariants = Array.from(registeredSchemaDefinitionsByName.values())
+      } else if (registeredSchemaDefinitionsByKey != undefined) {
+        const schemaVariants = Array.from(registeredSchemaDefinitionsByKey.values())
           .flat()
           .filter((registeredSchema) => registeredSchema.name === schemaName);
         const registeredSchemaVariants = Array.from(
@@ -288,3 +288,4 @@ export function resolveDeserializerForTopic(
     throw error;
   }
 }
+

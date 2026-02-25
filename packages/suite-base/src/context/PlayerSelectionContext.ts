@@ -17,7 +17,7 @@ export type DataSourceFactoryInitializeArgs = {
   file?: File;
   files?: File[];
   params?: Record<string, string | undefined>;
-  registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
+  registeredSchemaDefinitionsByKey?: Map<string, readonly RegisteredSchemaDefinition[]>;
 };
 
 export type DataSourceFactoryType = "file" | "connection" | "sample";
@@ -127,3 +127,4 @@ export function usePlayerSelection(): PlayerSelection {
 }
 
 export default PlayerSelectionContext;
+
