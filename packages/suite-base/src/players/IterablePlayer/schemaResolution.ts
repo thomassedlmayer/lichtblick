@@ -9,6 +9,7 @@ import Logger from "@lichtblick/log";
 import { parseChannel, SchemaDefinition } from "@lichtblick/mcap-support";
 import type { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { Initialization } from "@lichtblick/suite-base/players/IterablePlayer/IIterableSource";
+import { schemaDefinitionKey } from "@lichtblick/suite-base/providers/helpers/schemaDefinitionRegistry";
 
 const log = Logger.getLogger(__filename);
 
@@ -33,10 +34,6 @@ export type ResolveDeserializerForTopicResult = {
   deserialize: (data: ArrayBufferView) => unknown;
   alerts: Initialization["alerts"];
 };
-
-function schemaDefinitionKey(name: string, encoding: string): string {
-  return `${name}\n${encoding}`;
-}
 
 function preferredSchemaEncodings(messageEncoding: string): string[] {
   if (messageEncoding === "json") {
