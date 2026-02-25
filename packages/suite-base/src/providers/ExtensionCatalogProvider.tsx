@@ -77,7 +77,10 @@ function schemaDefinitionIdentityKey(schema: RegisteredSchemaDefinition): string
   ].join("\n");
 }
 
-function schemaVariantsEqual(a: RegisteredSchemaDefinition, b: RegisteredSchemaDefinition): boolean {
+function schemaVariantsEqual(
+  a: RegisteredSchemaDefinition,
+  b: RegisteredSchemaDefinition,
+): boolean {
   return (
     a.name === b.name &&
     a.encoding === b.encoding &&
@@ -275,7 +278,7 @@ function createExtensionRegistryStore(
       info: ExtensionInfo,
       {
         messageConverters,
-        messageConverterSchemas,
+        schemaDefinitions: messageConverterSchemas,
         panelSettings,
         panels,
         topicAliasFunctions,
@@ -355,9 +358,7 @@ function createExtensionRegistryStore(
             _.assign(panels, newContributionPoints.panels);
             _.merge(panelSettings, newContributionPoints.panelSettings);
             messageConverters.push(...newContributionPoints.messageConverters);
-            contributionPoints.messageConverterSchemas.push(
-              ...newContributionPoints.messageConverterSchemas,
-            );
+            contributionPoints.schemaDefinitions.push(...newContributionPoints.schemaDefinitions);
             topicAliasFunctions.push(...newContributionPoints.topicAliasFunctions);
 
             newContributionPoints.cameraModels.forEach((builder, name: string) => {
@@ -386,7 +387,7 @@ function createExtensionRegistryStore(
       const installedExtensions: ExtensionInfo[] = [];
       const contributionPoints: ContributionPoints = {
         messageConverters: [],
-        messageConverterSchemas: [],
+        schemaDefinitions: [],
         panels: {},
         panelSettings: {},
         topicAliasFunctions: [],
@@ -424,7 +425,7 @@ function createExtensionRegistryStore(
         installedCameraModels: contributionPoints.cameraModels,
         installedSchemaDefinitions: mergeSchemaDefinitions(
           new Map(),
-          contributionPoints.messageConverterSchemas,
+          contributionPoints.schemaDefinitions,
         ),
         panelSettings: contributionPoints.panelSettings,
       });

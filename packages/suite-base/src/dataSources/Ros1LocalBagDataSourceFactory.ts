@@ -55,7 +55,7 @@ class Ros1LocalBagDataSourceFactory implements IDataSourceFactory {
       name: file.name,
       sourceId: this.id,
       readAheadDuration: { sec: 120, nsec: 0 },
-      schemaDefinitionsByName: args.schemaDefinitionsByName,
+      registeredSchemaDefinitionsByName: args.registeredSchemaDefinitionsByName,
     });
   }
 }

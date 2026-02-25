@@ -115,7 +115,7 @@ class RemoteDataSourceFactory implements IDataSourceFactory {
       urlParams: { urls },
       sourceId: this.id,
       readAheadDuration: { sec: 10, nsec: 0 },
-      schemaDefinitionsByName: args.schemaDefinitionsByName,
+      registeredSchemaDefinitionsByName: args.registeredSchemaDefinitionsByName,
     });
   }
 

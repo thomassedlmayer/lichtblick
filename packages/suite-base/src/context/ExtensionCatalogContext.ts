@@ -116,7 +116,7 @@ export type SchemaDefinitionEntry = RegisteredSchemaDefinition & {
 export type ContributionPoints = {
   panels: Record<string, RegisteredPanel>;
   messageConverters: MessageConverter[];
-  messageConverterSchemas: SchemaDefinitionEntry[];
+  schemaDefinitions: SchemaDefinitionEntry[];
   topicAliasFunctions: TopicAliasFunctions;
   panelSettings: ExtensionSettings;
   cameraModels: CameraModelsMap;

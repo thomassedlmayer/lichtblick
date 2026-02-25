@@ -129,7 +129,7 @@ export function buildContributionPoints(
   return {
     panels,
     messageConverters,
-    messageConverterSchemas,
+    schemaDefinitions: messageConverterSchemas,
     topicAliasFunctions,
     panelSettings,
     cameraModels,
