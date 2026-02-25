@@ -7,8 +7,8 @@
 
 import { createContext, useContext } from "react";
 
-import type { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { LayoutData } from "@lichtblick/suite-base/context/CurrentLayoutContext/actions";
+import type { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { Player, PlayerMetricsCollectorInterface } from "@lichtblick/suite-base/players/types";
 import { RegisteredIconNames } from "@lichtblick/suite-base/types/Icons";
 
@@ -127,4 +127,3 @@ export function usePlayerSelection(): PlayerSelection {
 }
 
 export default PlayerSelectionContext;
-
