@@ -271,7 +271,7 @@ describe("DeserializingIterableSources", () => {
     const registeredSchemaDefinitionsByName = new Map([
       [
         "some_type\njsonschema",
-        { name: "some_type", encoding: "jsonschema", data: invalidRegisteredSchema },
+        [{ name: "some_type", encoding: "jsonschema", data: invalidRegisteredSchema }],
       ],
     ]);
     const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
@@ -326,25 +326,29 @@ describe("DeserializingIterableSources", () => {
     const registeredSchemaDefinitionsByName = new Map([
       [
         "some_type\njsonschema",
-        {
-          name: "some_type",
-          encoding: "jsonschema",
-          data: textEncoder.encode(
-            JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
-          ),
-          extensionId: "ext-a",
-          extensionNamespace: "local",
-        },
+        [
+          {
+            name: "some_type",
+            encoding: "jsonschema",
+            data: textEncoder.encode(
+              JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
+            ),
+            extensionId: "ext-a",
+            extensionNamespace: "local",
+          },
+        ],
       ],
       [
         "some_type\nprotobuf",
-        {
-          name: "some_type",
-          encoding: "protobuf",
-          data: textEncoder.encode("message SomeType {}"),
-          extensionId: "ext-b",
-          extensionNamespace: "org",
-        },
+        [
+          {
+            name: "some_type",
+            encoding: "protobuf",
+            data: textEncoder.encode("message SomeType {}"),
+            extensionId: "ext-b",
+            extensionNamespace: "org",
+          },
+        ],
       ],
     ]);
 
@@ -389,26 +393,26 @@ describe("DeserializingIterableSources", () => {
     const registeredSchemaDefinitionsByName = new Map([
       [
         "some_type\njsonschema",
-        {
-          name: "some_type",
-          encoding: "jsonschema",
-          data: textEncoder.encode(
-            JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
-          ),
-          extensionId: "ext-a",
-          extensionNamespace: "local",
-          conflictingSchemaDefinitions: [
-            {
-              name: "some_type",
-              encoding: "jsonschema",
-              data: textEncoder.encode(
-                JSON.stringify({ type: "object", properties: { foo: { type: "number" } } }),
-              ),
-              extensionId: "ext-b",
-              extensionNamespace: "org",
-            },
-          ],
-        },
+        [
+          {
+            name: "some_type",
+            encoding: "jsonschema",
+            data: textEncoder.encode(
+              JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
+            ),
+            extensionId: "ext-a",
+            extensionNamespace: "local",
+          },
+          {
+            name: "some_type",
+            encoding: "jsonschema",
+            data: textEncoder.encode(
+              JSON.stringify({ type: "object", properties: { foo: { type: "number" } } }),
+            ),
+            extensionId: "ext-b",
+            extensionNamespace: "org",
+          },
+        ],
       ],
     ]);
 
@@ -447,24 +451,24 @@ describe("DeserializingIterableSources", () => {
     const registeredSchemaDefinitionsByName = new Map([
       [
         "some_type\njsonschema",
-        {
-          name: "some_type",
-          encoding: "jsonschema",
-          data: textEncoder.encode("invalid registered schema"),
-          extensionId: "ext-a",
-          extensionNamespace: "local",
-          conflictingSchemaDefinitions: [
-            {
-              name: "some_type",
-              encoding: "jsonschema",
-              data: textEncoder.encode(
-                JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
-              ),
-              extensionId: "ext-a",
-              extensionNamespace: "local",
-            },
-          ],
-        },
+        [
+          {
+            name: "some_type",
+            encoding: "jsonschema",
+            data: textEncoder.encode("invalid registered schema"),
+            extensionId: "ext-a",
+            extensionNamespace: "local",
+          },
+          {
+            name: "some_type",
+            encoding: "jsonschema",
+            data: textEncoder.encode(
+              JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
+            ),
+            extensionId: "ext-a",
+            extensionNamespace: "local",
+          },
+        ],
       ],
     ]);
     const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);

@@ -20,7 +20,7 @@ import {
   ContributionPoints,
   RegisteredPanel,
   MessageConverter,
-  SchemaDefinitionEntry,
+  RegisteredSchemaDefinition,
 } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { ExtensionInfo } from "@lichtblick/suite-base/types/Extensions";
 
@@ -34,7 +34,7 @@ export function buildContributionPoints(
   // the fully qualified id is the extension name + panel name
   const panels: Record<string, RegisteredPanel> = {};
   const messageConverters: RegisterMessageConverterArgs<unknown>[] = [];
-  const messageConverterSchemas: SchemaDefinitionEntry[] = [];
+  const messageConverterSchemas: RegisteredSchemaDefinition[] = [];
   const panelSettings: ExtensionSettings = {};
   const topicAliasFunctions: ContributionPoints["topicAliasFunctions"] = [];
   const cameraModels: CameraModelsMap = new Map();
@@ -92,7 +92,7 @@ export function buildContributionPoints(
     },
 
     registerSchemaDefinition: (schemaDefinition: RegisterSchemaDefinitionArgs) => {
-      const schemaDefinitionEntry: SchemaDefinitionEntry = {
+      const schemaDefinitionEntry: RegisteredSchemaDefinition = {
         name: schemaDefinition.name,
         encoding: schemaDefinition.encoding,
         data: schemaDefinition.data,

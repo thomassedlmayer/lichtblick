@@ -39,14 +39,14 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
   #deserializersByTopic: Record<string, (data: ArrayBufferView) => unknown> = {};
   #messageSizeEstimateBySubHash: Record<string, number> = {};
   #connectionIdByTopic: Record<string, number> = {};
-  #registeredSchemaDefinitionsByName?: Map<string, SchemaDefinition>;
+  #registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
   #failedTopics = new Set<string>();
 
   public readonly sourceType = "deserialized";
 
   public constructor(
     source: IIterableSource<Uint8Array>,
-    registeredSchemaDefinitionsByName?: Map<string, SchemaDefinition>,
+    registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>,
   ) {
     this.#source = source;
     this.#registeredSchemaDefinitionsByName = registeredSchemaDefinitionsByName;

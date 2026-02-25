@@ -28,7 +28,6 @@ import { useLatest, useMountedState } from "react-use";
 
 import { useWarnImmediateReRender } from "@lichtblick/hooks";
 import Logger from "@lichtblick/log";
-import { SchemaDefinition } from "@lichtblick/mcap-support";
 import { Immutable } from "@lichtblick/suite";
 import { MessagePipelineProvider } from "@lichtblick/suite-base/components/MessagePipeline";
 import { useAnalytics } from "@lichtblick/suite-base/context/AnalyticsContext";
@@ -169,10 +168,8 @@ export default function PlayerManager(
       const installedSchemaDefinitions =
         extensionCatalogContext?.getState().installedSchemaDefinitions;
       const registeredSchemaDefinitionsByName = installedSchemaDefinitions
-        ? new Map<string, SchemaDefinition>(
-            installedSchemaDefinitions as Map<string, SchemaDefinition>,
-          )
-        : new Map<string, SchemaDefinition>();
+        ? new Map(installedSchemaDefinitions)
+        : new Map();
 
       // Sample sources don't need args or prompts to initialize
       if (foundSource.type === "sample") {
