@@ -47,9 +47,10 @@ class UlogLocalDataSourceFactory implements IDataSourceFactory {
       source,
       name: file.name,
       sourceId: this.id,
-      registeredSchemaDefinitionsByName: args.registeredSchemaDefinitionsByName,
+      registeredSchemaDefinitionsByKey: args.registeredSchemaDefinitionsByKey,
     });
   }
 }
 
 export default UlogLocalDataSourceFactory;
+

@@ -115,7 +115,7 @@ class RemoteDataSourceFactory implements IDataSourceFactory {
       urlParams: { urls },
       sourceId: this.id,
       readAheadDuration: { sec: 10, nsec: 0 },
-      registeredSchemaDefinitionsByName: args.registeredSchemaDefinitionsByName,
+      registeredSchemaDefinitionsByKey: args.registeredSchemaDefinitionsByKey,
     });
   }
 
@@ -144,3 +144,4 @@ class RemoteDataSourceFactory implements IDataSourceFactory {
 }
 
 export default RemoteDataSourceFactory;
+

@@ -39,17 +39,17 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
   #deserializersByTopic: Record<string, (data: ArrayBufferView) => unknown> = {};
   #messageSizeEstimateBySubHash: Record<string, number> = {};
   #connectionIdByTopic: Record<string, number> = {};
-  #registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
+  #registeredSchemaDefinitionsByKey?: Map<string, readonly RegisteredSchemaDefinition[]>;
   #failedTopics = new Set<string>();
 
   public readonly sourceType = "deserialized";
 
   public constructor(
     source: IIterableSource<Uint8Array>,
-    registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>,
+    registeredSchemaDefinitionsByKey?: Map<string, readonly RegisteredSchemaDefinition[]>,
   ) {
     this.#source = source;
-    this.#registeredSchemaDefinitionsByName = registeredSchemaDefinitionsByName;
+    this.#registeredSchemaDefinitionsByKey = registeredSchemaDefinitionsByKey;
   }
 
   public async initialize(): Promise<Initialization> {
@@ -77,7 +77,7 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
             schemaName,
             schemaData,
             schemaEncoding,
-            registeredSchemaDefinitionsByName: this.#registeredSchemaDefinitionsByName,
+            registeredSchemaDefinitionsByKey: this.#registeredSchemaDefinitionsByKey,
           });
           this.#deserializersByTopic[topic] = result.deserialize;
           alerts.push(...result.alerts);
@@ -234,3 +234,4 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
     };
   }
 }
+

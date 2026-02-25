@@ -269,7 +269,7 @@ describe("DeserializingIterableSources", () => {
     });
 
     const invalidRegisteredSchema = textEncoder.encode("not valid json schema");
-    const registeredSchemaDefinitionsByName = new Map<
+    const registeredSchemaDefinitionsByKey = new Map<
       string,
       readonly RegisteredSchemaDefinition[]
     >([
@@ -285,7 +285,7 @@ describe("DeserializingIterableSources", () => {
         ],
       ],
     ]);
-    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
+    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByKey);
     const initResult = await deserSource.initialize();
 
     const warnCalls = (console.warn as jest.Mock).mock.calls.length;
@@ -334,7 +334,7 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const registeredSchemaDefinitionsByName = new Map<
+    const registeredSchemaDefinitionsByKey = new Map<
       string,
       readonly RegisteredSchemaDefinition[]
     >([
@@ -364,7 +364,7 @@ describe("DeserializingIterableSources", () => {
       ],
     ]);
 
-    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
+    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByKey);
     const initResult = await deserSource.initialize();
 
     const infoAlert = initResult.alerts.find((alert) => alert.severity === "info");
@@ -398,7 +398,7 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const registeredSchemaDefinitionsByName = new Map<
+    const registeredSchemaDefinitionsByKey = new Map<
       string,
       readonly RegisteredSchemaDefinition[]
     >([
@@ -425,7 +425,7 @@ describe("DeserializingIterableSources", () => {
       ],
     ]);
 
-    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
+    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByKey);
     const initResult = await deserSource.initialize();
     const warnAlert = initResult.alerts.find(
       (alert) =>
@@ -458,7 +458,7 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const registeredSchemaDefinitionsByName = new Map<
+    const registeredSchemaDefinitionsByKey = new Map<
       string,
       readonly RegisteredSchemaDefinition[]
     >([
@@ -482,7 +482,7 @@ describe("DeserializingIterableSources", () => {
         ],
       ],
     ]);
-    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
+    const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByKey);
     const initResult = await deserSource.initialize();
     expect(initResult.alerts).not.toContainEqual(
       expect.objectContaining({
@@ -540,3 +540,4 @@ describe("DeserializingIterableSources", () => {
     (console.error as jest.Mock).mockClear();
   });
 });
+

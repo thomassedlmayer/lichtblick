@@ -167,7 +167,7 @@ export default function PlayerManager(
       setSelectedSource(foundSource);
       const installedSchemaDefinitions =
         extensionCatalogContext?.getState().installedSchemaDefinitions;
-      const registeredSchemaDefinitionsByName = installedSchemaDefinitions
+      const registeredSchemaDefinitionsByKey = installedSchemaDefinitions
         ? new Map(installedSchemaDefinitions)
         : new Map();
 
@@ -175,7 +175,7 @@ export default function PlayerManager(
       if (foundSource.type === "sample") {
         const newPlayer = foundSource.initialize({
           metricsCollector,
-          registeredSchemaDefinitionsByName,
+          registeredSchemaDefinitionsByKey,
         });
 
         setBasePlayer(newPlayer);
@@ -194,7 +194,7 @@ export default function PlayerManager(
             const newPlayer = foundSource.initialize({
               metricsCollector,
               params: args.params,
-              registeredSchemaDefinitionsByName,
+              registeredSchemaDefinitionsByKey,
             });
             setBasePlayer(newPlayer);
 
@@ -231,7 +231,7 @@ export default function PlayerManager(
                 file: multiFile ? undefined : file,
                 files: multiFile ? fileList : undefined,
                 metricsCollector,
-                registeredSchemaDefinitionsByName,
+                registeredSchemaDefinitionsByKey,
               });
 
               setBasePlayer(newPlayer);
@@ -258,7 +258,7 @@ export default function PlayerManager(
               const newPlayer = foundSource.initialize({
                 files: filesHandled,
                 metricsCollector,
-                registeredSchemaDefinitionsByName,
+                registeredSchemaDefinitionsByKey,
               });
 
               setBasePlayer(newPlayer);
@@ -360,3 +360,4 @@ function createSelectRecentCallback(
     }
   };
 }
+

@@ -105,7 +105,7 @@ export type IterablePlayerOptions = {
   // Max. time that messages will be buffered ahead for smoother playback. (default: 10sec)
   readAheadDuration?: Time;
 
-  registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
+  registeredSchemaDefinitionsByKey?: Map<string, readonly RegisteredSchemaDefinition[]>;
 };
 
 type IterablePlayerState =
@@ -189,7 +189,7 @@ export class IterablePlayer implements Player {
   #blockLoadingProcess?: Promise<void>;
 
   #messageRangeSource?: IDeserializedIterableSource;
-  #registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
+  #registeredSchemaDefinitionsByKey?: Map<string, readonly RegisteredSchemaDefinition[]>;
 
   #queueEmitState: ReturnType<typeof debouncePromise>;
 
@@ -213,11 +213,11 @@ export class IterablePlayer implements Player {
       enablePreload,
       sourceId,
       readAheadDuration = { sec: 10, nsec: 0 },
-      registeredSchemaDefinitionsByName,
+      registeredSchemaDefinitionsByKey,
     } = options;
 
     this.#iterableSource = source;
-    this.#registeredSchemaDefinitionsByName = registeredSchemaDefinitionsByName;
+    this.#registeredSchemaDefinitionsByKey = registeredSchemaDefinitionsByKey;
 
     if (source.sourceType === "deserialized") {
       this.#bufferImpl = new BufferedIterableSource(source);
@@ -231,7 +231,7 @@ export class IterablePlayer implements Player {
       this.#bufferImpl = bufferInterface;
       this.#bufferedSource = new DeserializingIterableSource(
         bufferInterface,
-        this.#registeredSchemaDefinitionsByName,
+        this.#registeredSchemaDefinitionsByKey,
       );
     }
 
@@ -607,7 +607,7 @@ export class IterablePlayer implements Player {
       } else {
         this.#messageRangeSource = new DeserializingIterableSource(
           this.#iterableSource,
-          this.#registeredSchemaDefinitionsByName,
+          this.#registeredSchemaDefinitionsByKey,
         );
         (this.#messageRangeSource as DeserializingIterableSource).initializeDeserializers(
           initResult,
@@ -623,7 +623,7 @@ export class IterablePlayer implements Player {
           } else {
             blockLoaderSource = new DeserializingIterableSource(
               this.#iterableSource,
-              this.#registeredSchemaDefinitionsByName,
+              this.#registeredSchemaDefinitionsByKey,
             );
             // We must not call initialize() here, as the #iterableSource was already initialized above.
             blockLoaderSource.initializeDeserializers(initResult);
@@ -1231,3 +1231,4 @@ export class IterablePlayer implements Player {
     });
   }
 }
+
