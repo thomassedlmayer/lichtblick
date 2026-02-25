@@ -96,9 +96,13 @@ export function buildContributionPoints(
         name: schemaDefinition.name,
         encoding: schemaDefinition.encoding,
         data: schemaDefinition.data,
-        label: schemaDefinition.label,
-        extensionNamespace: extension.namespace,
-        extensionId: extension.id,
+        sources: [
+          {
+            extensionNamespace: extension.namespace,
+            extensionId: extension.id,
+            label: schemaDefinition.label,
+          },
+        ],
       };
       schemaDefinitions.push(schemaDefinitionEntry);
     },

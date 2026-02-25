@@ -7,8 +7,8 @@
 
 import { pickFields } from "@lichtblick/den/records";
 import Logger from "@lichtblick/log";
-import { SchemaDefinition } from "@lichtblick/mcap-support";
 import { MessageEvent } from "@lichtblick/suite";
+import type { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import {
   MessageIteratorArgs,
   IteratorResult,
@@ -39,14 +39,14 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
   #deserializersByTopic: Record<string, (data: ArrayBufferView) => unknown> = {};
   #messageSizeEstimateBySubHash: Record<string, number> = {};
   #connectionIdByTopic: Record<string, number> = {};
-  #registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
+  #registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
   #failedTopics = new Set<string>();
 
   public readonly sourceType = "deserialized";
 
   public constructor(
     source: IIterableSource<Uint8Array>,
-    registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>,
+    registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>,
   ) {
     this.#source = source;
     this.#registeredSchemaDefinitionsByName = registeredSchemaDefinitionsByName;

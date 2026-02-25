@@ -99,6 +99,10 @@ export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
 };
 
 export type RegisteredSchemaDefinition = SchemaDefinition & {
+  sources: ReadonlyArray<RegisteredSchemaDefinitionSource>;
+};
+
+export type RegisteredSchemaDefinitionSource = {
   extensionNamespace?: Namespace;
   extensionId?: string;
   label?: string;

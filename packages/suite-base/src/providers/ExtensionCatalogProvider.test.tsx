@@ -637,15 +637,23 @@ describe("ExtensionCatalogProvider", () => {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: schemaData,
-            extensionId: extensionInfo.id,
-            extensionNamespace: extensionInfo.namespace,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: extensionInfo.id,
+              },
+            ],
           },
           {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: new Uint8Array([1, 2, 3, 4]),
-            extensionId: `${extensionInfo.id}-duplicate`,
-            extensionNamespace: extensionInfo.namespace,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: `${extensionInfo.id}-duplicate`,
+              },
+            ],
           },
         ],
         cameraModels: new Map(),
@@ -665,7 +673,16 @@ describe("ExtensionCatalogProvider", () => {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: new Uint8Array([1, 2, 3, 4]),
-            extensionId: extensionInfo.id,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: extensionInfo.id,
+              },
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: `${extensionInfo.id}-duplicate`,
+              },
+            ],
           }),
         ],
       );
@@ -680,15 +697,23 @@ describe("ExtensionCatalogProvider", () => {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: new Uint8Array([1, 2, 3, 4]),
-            extensionId: extensionInfo.id,
-            extensionNamespace: extensionInfo.namespace,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: extensionInfo.id,
+              },
+            ],
           },
           {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: new Uint8Array([4, 3, 2, 1]),
-            extensionId: `${extensionInfo.id}-other`,
-            extensionNamespace: extensionInfo.namespace,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: `${extensionInfo.id}-other`,
+              },
+            ],
           },
         ],
         cameraModels: new Map(),
@@ -708,15 +733,23 @@ describe("ExtensionCatalogProvider", () => {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: new Uint8Array([1, 2, 3, 4]),
-            extensionId: extensionInfo.id,
-            extensionNamespace: extensionInfo.namespace,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: extensionInfo.id,
+              },
+            ],
           }),
           {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: new Uint8Array([4, 3, 2, 1]),
-            extensionId: `${extensionInfo.id}-other`,
-            extensionNamespace: extensionInfo.namespace,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: `${extensionInfo.id}-other`,
+              },
+            ],
           },
         ],
       );
@@ -731,15 +764,23 @@ describe("ExtensionCatalogProvider", () => {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: new Uint8Array([1, 2, 3, 4]),
-            extensionId: extensionInfo.id,
-            extensionNamespace: extensionInfo.namespace,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: extensionInfo.id,
+              },
+            ],
           },
           {
             name: "osi3.sensorview",
             encoding: "protobuf",
             data: new Uint8Array([9, 8, 7, 6]),
-            extensionId: extensionInfo.id,
-            extensionNamespace: extensionInfo.namespace,
+            sources: [
+              {
+                extensionNamespace: extensionInfo.namespace,
+                extensionId: extensionInfo.id,
+              },
+            ],
           },
         ],
         cameraModels: new Map(),
@@ -759,15 +800,23 @@ describe("ExtensionCatalogProvider", () => {
           name: "osi3.sensorview",
           encoding: "protobuf",
           data: new Uint8Array([1, 2, 3, 4]),
-          extensionId: extensionInfo.id,
-          extensionNamespace: extensionInfo.namespace,
+          sources: [
+            {
+              extensionNamespace: extensionInfo.namespace,
+              extensionId: extensionInfo.id,
+            },
+          ],
         },
         {
           name: "osi3.sensorview",
           encoding: "protobuf",
           data: new Uint8Array([9, 8, 7, 6]),
-          extensionId: extensionInfo.id,
-          extensionNamespace: extensionInfo.namespace,
+          sources: [
+            {
+              extensionNamespace: extensionInfo.namespace,
+              extensionId: extensionInfo.id,
+            },
+          ],
         },
       ]);
     });

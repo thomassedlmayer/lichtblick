@@ -7,7 +7,7 @@
 
 import { createContext, useContext } from "react";
 
-import { SchemaDefinition } from "@lichtblick/mcap-support";
+import type { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { LayoutData } from "@lichtblick/suite-base/context/CurrentLayoutContext/actions";
 import { Player, PlayerMetricsCollectorInterface } from "@lichtblick/suite-base/players/types";
 import { RegisteredIconNames } from "@lichtblick/suite-base/types/Icons";
@@ -17,7 +17,7 @@ export type DataSourceFactoryInitializeArgs = {
   file?: File;
   files?: File[];
   params?: Record<string, string | undefined>;
-  registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
+  registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
 };
 
 export type DataSourceFactoryType = "file" | "connection" | "sample";

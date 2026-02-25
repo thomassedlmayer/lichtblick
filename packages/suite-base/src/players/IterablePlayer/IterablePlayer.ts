@@ -12,7 +12,6 @@ import { v4 as uuidv4 } from "uuid";
 import { debouncePromise } from "@lichtblick/den/async";
 import { filterMap } from "@lichtblick/den/collection";
 import Log from "@lichtblick/log";
-import { SchemaDefinition } from "@lichtblick/mcap-support";
 import {
   Time,
   add,
@@ -24,6 +23,7 @@ import {
   toString,
 } from "@lichtblick/rostime";
 import { Immutable, MessageEvent, Metadata, ParameterValue } from "@lichtblick/suite";
+import type { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { DeserializedSourceWrapper } from "@lichtblick/suite-base/players/IterablePlayer/DeserializedSourceWrapper";
 import { DeserializingIterableSource } from "@lichtblick/suite-base/players/IterablePlayer/DeserializingIterableSource";
 import { freezeMetadata } from "@lichtblick/suite-base/players/IterablePlayer/freezeMetadata";
@@ -105,7 +105,7 @@ export type IterablePlayerOptions = {
   // Max. time that messages will be buffered ahead for smoother playback. (default: 10sec)
   readAheadDuration?: Time;
 
-  registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
+  registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
 };
 
 type IterablePlayerState =
@@ -189,7 +189,7 @@ export class IterablePlayer implements Player {
   #blockLoadingProcess?: Promise<void>;
 
   #messageRangeSource?: IDeserializedIterableSource;
-  #registeredSchemaDefinitionsByName?: Map<string, readonly SchemaDefinition[]>;
+  #registeredSchemaDefinitionsByName?: Map<string, readonly RegisteredSchemaDefinition[]>;
 
   #queueEmitState: ReturnType<typeof debouncePromise>;
 

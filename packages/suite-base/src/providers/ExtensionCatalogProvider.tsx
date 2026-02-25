@@ -20,7 +20,10 @@ import {
   LoadExtensionsResult,
 } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { buildContributionPoints } from "@lichtblick/suite-base/providers/helpers/buildContributionPoints";
-import { mergeSchemaDefinitions } from "@lichtblick/suite-base/providers/helpers/schemaDefinitionRegistry";
+import {
+  mergeSchemaDefinitions,
+  removeSchemaDefinitionSource,
+} from "@lichtblick/suite-base/providers/helpers/schemaDefinitionRegistry";
 import { IExtensionLoader } from "@lichtblick/suite-base/services/extension/IExtensionLoader";
 import { Namespace } from "@lichtblick/suite-base/types";
 import { ExtensionInfo } from "@lichtblick/suite-base/types/Extensions";
@@ -344,7 +347,9 @@ function createExtensionRegistryStore(
           [...installedSchemaDefinitions]
             .map(([key, definitions]) => [
               key,
-              definitions.filter((schema) => schema.extensionId !== id),
+              definitions
+                .map((schema) => removeSchemaDefinitionSource(schema, id))
+                .filter((schema): schema is NonNullable<typeof schema> => schema != undefined),
             ] as const)
             .filter(([, definitions]) => definitions.length > 0),
         ),

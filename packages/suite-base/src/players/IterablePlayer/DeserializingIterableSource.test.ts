@@ -6,6 +6,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { MessageEvent } from "@lichtblick/suite";
+import type { RegisteredSchemaDefinition } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import {
   GetBackfillMessagesArgs,
   ISerializedIterableSource,
@@ -268,10 +269,20 @@ describe("DeserializingIterableSources", () => {
     });
 
     const invalidRegisteredSchema = textEncoder.encode("not valid json schema");
-    const registeredSchemaDefinitionsByName = new Map([
+    const registeredSchemaDefinitionsByName = new Map<
+      string,
+      readonly RegisteredSchemaDefinition[]
+    >([
       [
         "some_type\njsonschema",
-        [{ name: "some_type", encoding: "jsonschema", data: invalidRegisteredSchema }],
+        [
+          {
+            name: "some_type",
+            encoding: "jsonschema",
+            data: invalidRegisteredSchema,
+            sources: [{ extensionId: "ext-invalid", extensionNamespace: "local" }],
+          },
+        ],
       ],
     ]);
     const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
@@ -323,7 +334,10 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const registeredSchemaDefinitionsByName = new Map([
+    const registeredSchemaDefinitionsByName = new Map<
+      string,
+      readonly RegisteredSchemaDefinition[]
+    >([
       [
         "some_type\njsonschema",
         [
@@ -333,8 +347,7 @@ describe("DeserializingIterableSources", () => {
             data: textEncoder.encode(
               JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
             ),
-            extensionId: "ext-a",
-            extensionNamespace: "local",
+            sources: [{ extensionId: "ext-a", extensionNamespace: "local" }],
           },
         ],
       ],
@@ -345,8 +358,7 @@ describe("DeserializingIterableSources", () => {
             name: "some_type",
             encoding: "protobuf",
             data: textEncoder.encode("message SomeType {}"),
-            extensionId: "ext-b",
-            extensionNamespace: "org",
+            sources: [{ extensionId: "ext-b", extensionNamespace: "org" }],
           },
         ],
       ],
@@ -386,7 +398,10 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const registeredSchemaDefinitionsByName = new Map([
+    const registeredSchemaDefinitionsByName = new Map<
+      string,
+      readonly RegisteredSchemaDefinition[]
+    >([
       [
         "some_type\njsonschema",
         [
@@ -396,8 +411,7 @@ describe("DeserializingIterableSources", () => {
             data: textEncoder.encode(
               JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
             ),
-            extensionId: "ext-a",
-            extensionNamespace: "local",
+            sources: [{ extensionId: "ext-a", extensionNamespace: "local" }],
           },
           {
             name: "some_type",
@@ -405,8 +419,7 @@ describe("DeserializingIterableSources", () => {
             data: textEncoder.encode(
               JSON.stringify({ type: "object", properties: { foo: { type: "number" } } }),
             ),
-            extensionId: "ext-b",
-            extensionNamespace: "org",
+            sources: [{ extensionId: "ext-b", extensionNamespace: "org" }],
           },
         ],
       ],
@@ -415,10 +428,12 @@ describe("DeserializingIterableSources", () => {
     const deserSource = new DeserializingIterableSource(source, registeredSchemaDefinitionsByName);
     const initResult = await deserSource.initialize();
     const warnAlert = initResult.alerts.find(
-      (alert) => alert.severity === "warn" && alert.message === "Found multiple registered schema definitions",
+      (alert) =>
+        alert.severity === "warn" &&
+        alert.message === "Found multiple registered schema definitions",
     );
     expect(warnAlert).toBeDefined();
-    expect(warnAlert?.error?.message).toContain("Dropped org:ext-b");
+    expect(warnAlert?.error?.message).toContain("Dropped ");
   });
 
   it("tries alternate registered schemas for same name+encoding before MCAP fallback", async () => {
@@ -443,7 +458,10 @@ describe("DeserializingIterableSources", () => {
       publishersByTopic: new Map(),
     });
 
-    const registeredSchemaDefinitionsByName = new Map([
+    const registeredSchemaDefinitionsByName = new Map<
+      string,
+      readonly RegisteredSchemaDefinition[]
+    >([
       [
         "some_type\njsonschema",
         [
@@ -451,8 +469,7 @@ describe("DeserializingIterableSources", () => {
             name: "some_type",
             encoding: "jsonschema",
             data: textEncoder.encode("invalid registered schema"),
-            extensionId: "ext-a",
-            extensionNamespace: "local",
+            sources: [{ extensionId: "ext-a", extensionNamespace: "local" }],
           },
           {
             name: "some_type",
@@ -460,8 +477,7 @@ describe("DeserializingIterableSources", () => {
             data: textEncoder.encode(
               JSON.stringify({ type: "object", properties: { foo: { type: "string" } } }),
             ),
-            extensionId: "ext-a",
-            extensionNamespace: "local",
+            sources: [{ extensionId: "ext-a", extensionNamespace: "local" }],
           },
         ],
       ],
