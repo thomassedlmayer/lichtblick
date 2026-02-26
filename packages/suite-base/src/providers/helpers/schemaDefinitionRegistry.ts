@@ -25,24 +25,6 @@ function schemasHaveSameData(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
-function schemaDataFingerprint(data: Uint8Array): number {
-  let hash = 2166136261;
-  for (let i = 0; i < data.byteLength; i++) {
-    hash ^= data[i]!;
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-  }
-  return hash >>> 0;
-}
-
-function schemaDefinitionIdentityKey(schema: RegisteredSchemaDefinition): string {
-  return [
-    schema.name,
-    schema.encoding,
-    schema.data.byteLength.toString(),
-    schemaDataFingerprint(schema.data).toString(),
-  ].join("\n");
-}
-
 function sourceIdentityKey(source: RegisteredSchemaDefinitionSource): string {
   return [source.extensionNamespace ?? "", source.extensionId ?? "", source.label ?? ""].join("\n");
 }
@@ -58,6 +40,22 @@ function mergeSchemaSources(
 
 function schemaDefinitionsEqual(a: RegisteredSchemaDefinition, b: RegisteredSchemaDefinition): boolean {
   return a.name === b.name && a.encoding === b.encoding && schemasHaveSameData(a.data, b.data);
+}
+
+function dedupeSchemaDefinitions(
+  schemas: readonly RegisteredSchemaDefinition[],
+): RegisteredSchemaDefinition[] {
+  const deduped: RegisteredSchemaDefinition[] = [];
+  for (const schema of schemas) {
+    const existingIndex = deduped.findIndex((existing) => schemaDefinitionsEqual(existing, schema));
+    if (existingIndex >= 0) {
+      const existing = deduped[existingIndex]!;
+      deduped[existingIndex] = mergeEquivalentSchemaDefinitions(existing, schema);
+    } else {
+      deduped.push(schema);
+    }
+  }
+  return deduped;
 }
 
 function mergeEquivalentSchemaDefinitions(
@@ -97,10 +95,7 @@ export function mergeSchemaDefinitions(
       continue;
     }
 
-    const next = new Map(
-      [...current, schema].map((candidate) => [schemaDefinitionIdentityKey(candidate), candidate]),
-    );
-    updated.set(key, Array.from(next.values()));
+    updated.set(key, dedupeSchemaDefinitions([...current, schema]));
   }
 
   return updated;
