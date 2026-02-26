@@ -108,9 +108,13 @@ export function mergeSchemaDefinitions(
 
 export function removeSchemaDefinitionSource(
   schema: RegisteredSchemaDefinition,
+  extensionNamespace: RegisteredSchemaDefinitionSource["extensionNamespace"],
   extensionId: string,
 ): RegisteredSchemaDefinition | undefined {
-  const remainingSources = schema.sources.filter((source) => source.extensionId !== extensionId);
+  const remainingSources = schema.sources.filter(
+    (source) =>
+      source.extensionId !== extensionId || source.extensionNamespace !== extensionNamespace,
+  );
   if (remainingSources.length === 0) {
     return undefined;
   }
