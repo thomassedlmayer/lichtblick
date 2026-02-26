@@ -41,8 +41,24 @@ describe("schemaDefinitionRegistry", () => {
       ],
     };
 
-    const updated = removeSchemaDefinitionSource(schema, "ext-a");
+    const updated = removeSchemaDefinitionSource(schema, "local", "ext-a");
     expect(updated).toBeDefined();
     expect(updated?.sources).toEqual([{ extensionNamespace: "org", extensionId: "ext-b" }]);
+  });
+
+  it("keeps source with same extensionId in different namespace", () => {
+    const schema: RegisteredSchemaDefinition = {
+      name: "osi3.sensorview",
+      encoding: "protobuf",
+      data: new Uint8Array([1, 2, 3]),
+      sources: [
+        { extensionNamespace: "local", extensionId: "ext-a" },
+        { extensionNamespace: "org", extensionId: "ext-a" },
+      ],
+    };
+
+    const updated = removeSchemaDefinitionSource(schema, "local", "ext-a");
+    expect(updated).toBeDefined();
+    expect(updated?.sources).toEqual([{ extensionNamespace: "org", extensionId: "ext-a" }]);
   });
 });

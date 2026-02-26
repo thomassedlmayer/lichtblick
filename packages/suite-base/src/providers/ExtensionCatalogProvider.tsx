@@ -310,9 +310,11 @@ function createExtensionRegistryStore(
     };
 
     function removeExtensionData({
+      namespace,
       id, // deleted extension id
       state,
     }: {
+      namespace: Namespace;
       id: string;
       state: Pick<
         ExtensionCatalog,
@@ -352,7 +354,7 @@ function createExtensionRegistryStore(
             .map(([key, definitions]) => [
               key,
               definitions
-                .map((schema) => removeSchemaDefinitionSource(schema, id))
+                .map((schema) => removeSchemaDefinitionSource(schema, namespace, id))
                 .filter((schema): schema is NonNullable<typeof schema> => schema != undefined),
             ] as const)
             .filter(([, definitions]) => definitions.length > 0),
@@ -390,7 +392,7 @@ function createExtensionRegistryStore(
         );
       }
 
-      set((state) => removeExtensionData({ id: extension.id, state }));
+      set((state) => removeExtensionData({ namespace, id: extension.id, state }));
       get().unMarkExtensionAsInstalled(id);
     };
 
