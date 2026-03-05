@@ -1,0 +1,6 @@
+// Human-readable blueprint for TwoWordType.bfbs
+table TwoWordMessage {
+  two_word: int;
+}
+
+root_type TwoWordMessage;

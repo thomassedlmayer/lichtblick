@@ -1,0 +1,6 @@
+// Human-readable blueprint for TwoWordCamelType.bfbs
+table TwoWordCamelMessage {
+  twoWord: int;
+}
+
+root_type TwoWordCamelMessage;

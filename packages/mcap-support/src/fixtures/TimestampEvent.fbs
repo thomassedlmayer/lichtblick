@@ -1,0 +1,11 @@
+// Human-readable blueprint for TimestampEvent.bfbs
+table Timestamp {
+  seconds: long;
+  nanos: int;
+}
+
+table Event {
+  timestamp: Timestamp;
+}
+
+root_type Event;

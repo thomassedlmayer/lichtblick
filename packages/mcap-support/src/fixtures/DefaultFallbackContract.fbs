@@ -1,0 +1,16 @@
+// Human-readable blueprint for DefaultFallbackContract.bfbs
+enum Mode: int {
+  MODE_UNSPECIFIED = 0,
+  MODE_ACTIVE = 1
+}
+
+table DefaultFallbackContract {
+  name: string;
+  count: int;
+  enabled: bool;
+  values: [int];
+  mode: Mode;
+  data: [ubyte];
+}
+
+root_type DefaultFallbackContract;
