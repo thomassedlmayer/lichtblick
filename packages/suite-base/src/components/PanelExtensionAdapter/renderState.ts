@@ -14,9 +14,9 @@ import { compare, toSec } from "@lichtblick/rostime";
 import {
   AppSettingValue,
   Immutable,
-  MessageAdapter,
   MessageEvent,
   ParameterValue,
+  RegisterMessageContractDecoderArgs,
   RegisterMessageConverterArgs,
   RenderState,
   Subscription,
@@ -58,7 +58,7 @@ export type BuilderRenderStateInput = Immutable<{
   globalVariables: GlobalVariables;
   hoverValue: HoverValue | undefined;
   messageConverters?: readonly RegisterMessageConverterArgs<unknown>[];
-  messageAdapters?: readonly MessageAdapter<unknown>[];
+  messageContractDecoders?: readonly RegisterMessageContractDecoderArgs<unknown>[];
   messageContractConverters?: readonly RegisteredMessageContractConverter[];
   playerState: PlayerState | undefined;
   sharedPanelState: Record<string, unknown> | undefined;
@@ -123,7 +123,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
       globalVariables,
       hoverValue,
       messageConverters,
-      messageAdapters,
+      messageContractDecoders,
       messageContractConverters,
       playerState,
       sharedPanelState,
@@ -156,7 +156,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
       subscriptions,
       sortedTopics,
       messageConverters,
-      messageAdapters,
+      messageContractDecoders,
       messageContractConverters,
     );
     const {
@@ -283,11 +283,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
         for (const messageEvent of currentFrame) {
           if (unconvertedSubscriptionTopics.has(messageEvent.topic)) {
             postProcessedFrame.push(
-              projectMessageForJsonPanels(
-                messageEvent,
-                topicJsonAdapters,
-                topicMetaByName,
-              ),
+              projectMessageForJsonPanels(messageEvent, topicJsonAdapters, topicMetaByName),
             );
           }
 
@@ -399,11 +395,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               // currentFrame.
               if (unconvertedSubscriptionTopics.has(messageEvent.topic)) {
                 frames.push(
-                  projectMessageForJsonPanels(
-                    messageEvent,
-                    topicJsonAdapters,
-                    topicMetaByName,
-                  ),
+                  projectMessageForJsonPanels(messageEvent, topicJsonAdapters, topicMetaByName),
                 );
               }
 

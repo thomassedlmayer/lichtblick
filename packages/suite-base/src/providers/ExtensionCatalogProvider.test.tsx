@@ -748,7 +748,7 @@ describe("ExtensionCatalogProvider", () => {
       ];
       const contributionPoints: ContributionPoints = {
         messageConverters: [messageConverter],
-        messageAdapters: [],
+        messageContractDecoders: [],
         messageContractConverters: [],
         cameraModels: new Map(),
         topicAliasFunctions,

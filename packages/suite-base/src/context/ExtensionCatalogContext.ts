@@ -11,11 +11,11 @@ import { StoreApi, useStore } from "zustand";
 import { CameraModelsMap } from "@lichtblick/den/image/types";
 import { useGuaranteedContext } from "@lichtblick/hooks";
 import {
-  MessageAdapter,
-  MessageContractConverter,
   ExtensionPanelRegistration,
   Immutable,
   PanelSettings,
+  RegisterMessageContractConverterArgs,
+  RegisterMessageContractDecoderArgs,
   RegisterMessageConverterArgs,
 } from "@lichtblick/suite";
 import { ExtensionSettings } from "@lichtblick/suite-base/components/PanelSettings/types";
@@ -88,7 +88,7 @@ export type ExtensionCatalog = Immutable<{
   installedExtensions: undefined | ExtensionInfo[];
   installedPanels: undefined | Record<string, RegisteredPanel>;
   installedMessageConverters: undefined | Omit<MessageConverter, "panelSettings">[];
-  installedMessageAdapters?: undefined | RegisteredMessageAdapter[];
+  installedMessageContractDecoders?: undefined | RegisteredMessageContractDecoder[];
   installedMessageContractConverters?: undefined | RegisteredMessageContractConverter[];
   installedTopicAliasFunctions: undefined | TopicAliasFunctions;
   installedCameraModels: CameraModelsMap;
@@ -100,20 +100,22 @@ export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
   extensionId?: string;
 };
 
-export type RegisteredMessageAdapter = MessageAdapter<unknown> & {
+export interface RegisteredMessageContractDecoder
+  extends RegisterMessageContractDecoderArgs<unknown> {
   extensionNamespace?: Namespace;
   extensionId?: string;
-};
+}
 
-export type RegisteredMessageContractConverter = MessageContractConverter<unknown> & {
+export interface RegisteredMessageContractConverter
+  extends RegisterMessageContractConverterArgs<unknown> {
   extensionNamespace?: Namespace;
   extensionId?: string;
-};
+}
 
 export type ContributionPoints = {
   panels: Record<string, RegisteredPanel>;
   messageConverters: MessageConverter[];
-  messageAdapters: RegisteredMessageAdapter[];
+  messageContractDecoders: RegisteredMessageContractDecoder[];
   messageContractConverters: RegisteredMessageContractConverter[];
   topicAliasFunctions: TopicAliasFunctions;
   panelSettings: ExtensionSettings;

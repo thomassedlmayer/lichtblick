@@ -12,8 +12,8 @@ import { Opaque } from "ts-essentials";
 import Logger from "@lichtblick/log";
 import {
   Immutable,
-  MessageAdapter,
   MessageEvent,
+  RegisterMessageContractDecoderArgs,
   Subscription,
 } from "@lichtblick/suite";
 import type {
@@ -40,7 +40,7 @@ type ProvidedContractLike = {
 
 type TopicSchemaConverterMap = Map<ConverterKey, MessageConverter[]>;
 type TopicSchemaContractConverterMap = Map<ConverterKey, ContractConverter[]>;
-type TopicJsonAdapterMap = Map<string, MessageAdapter<unknown>>;
+type TopicJsonAdapterMap = Map<string, RegisterMessageContractDecoderArgs<unknown>>;
 
 const log = Logger.getLogger(__filename);
 
@@ -189,7 +189,7 @@ export function collateTopicSchemaConversions(
   subscriptions: readonly Subscription[],
   sortedTopics: readonly PlayerTopic[],
   messageConverters: undefined | readonly MessageConverter[],
-  messageAdapters?: readonly MessageAdapter<unknown>[],
+  messageContractDecoders?: readonly RegisterMessageContractDecoderArgs<unknown>[],
   messageContractConverters?: readonly ContractConverter[],
 ): TopicSchemaConversions {
   const topicSchemaConverters: TopicSchemaConverterMap = new Map();
@@ -197,7 +197,7 @@ export function collateTopicSchemaConversions(
   const topicJsonAdapters: TopicJsonAdapterMap = new Map();
   const unconvertedSubscriptionTopics = new Set<string>();
   const adapterByContractId = new Map(
-    (messageAdapters ?? [])
+    (messageContractDecoders ?? [])
       .filter((adapter) => adapter.providedContract != undefined)
       .map((adapter) => [adapter.providedContract.contractId, adapter] as const),
   );

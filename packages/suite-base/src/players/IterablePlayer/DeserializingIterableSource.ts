@@ -8,7 +8,7 @@
 import { pickFields } from "@lichtblick/den/records";
 import Logger from "@lichtblick/log";
 import { parseChannel } from "@lichtblick/mcap-support";
-import { ChannelMeta, MessageAdapter, MessageEvent } from "@lichtblick/suite";
+import { MessageEvent } from "@lichtblick/suite";
 import {
   MessageIteratorArgs,
   IteratorResult,
@@ -17,8 +17,8 @@ import {
   Initialization,
   IIterableSource,
 } from "@lichtblick/suite-base/players/IterablePlayer/IIterableSource";
-import { getRegisteredMessageAdapters } from "@lichtblick/suite-base/players/IterablePlayer/messageAdapterRegistry";
-import { resolveMessageAdapter } from "@lichtblick/suite-base/players/IterablePlayer/resolveMessageAdapter";
+import { getRegisteredMessageContractDecoders } from "@lichtblick/suite-base/players/IterablePlayer/messageAdapterRegistry";
+import { resolveMessageContractDecoder } from "@lichtblick/suite-base/players/IterablePlayer/resolveMessageAdapter";
 import { estimateObjectSize } from "@lichtblick/suite-base/players/messageMemoryEstimation";
 import { SubscribePayload } from "@lichtblick/suite-base/players/types";
 
@@ -40,7 +40,6 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
   #deserializersByTopic: Record<string, (data: ArrayBufferView) => unknown> = {};
   #messageSizeEstimateBySubHash: Record<string, number> = {};
   #connectionIdByTopic: Record<string, number> = {};
-  #adapterByTopic: Record<string, MessageAdapter<unknown>> = {};
 
   public readonly sourceType = "deserialized";
 
@@ -72,7 +71,7 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
             throw new Error(`Unspecified message encoding for topic ${topic}`);
           }
 
-          const channelMeta: ChannelMeta = {
+          const channelMetaForDecoder = {
             topic,
             schemaName,
             messageEncoding,
@@ -80,15 +79,16 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
             schemaData,
           };
 
-          const resolvedAdapter = resolveMessageAdapter(
-            getRegisteredMessageAdapters(),
-            channelMeta,
+          const resolvedDecoder = resolveMessageContractDecoder(
+            getRegisteredMessageContractDecoders(),
+            channelMetaForDecoder,
           );
-          if (resolvedAdapter != undefined) {
-            this.#adapterByTopic[topic] = resolvedAdapter;
+          if (resolvedDecoder != undefined) {
             this.#deserializersByTopic[topic] = (data: ArrayBufferView) =>
-              resolvedAdapter.deserialize(data, channelMeta);
-            topicWithDecodingInfo.providedContract = resolvedAdapter.providedContract;
+              resolvedDecoder.deserialize(data, channelMetaForDecoder);
+            topicWithDecodingInfo.providedContract = resolvedDecoder.providedContract as
+              | typeof topicWithDecodingInfo.providedContract
+              | undefined;
             continue;
           }
 

@@ -7,9 +7,9 @@ import ReactDOM from "react-dom";
 import { CameraModelsMap } from "@lichtblick/den/image/types";
 import Logger from "@lichtblick/log";
 import {
+  RegisterMessageContractConverterArgs,
+  RegisterMessageContractDecoderArgs,
   RegisterMessageConverterArgs,
-  MessageAdapter,
-  MessageContractConverter,
   ExtensionContext,
   TopicAliasFunction,
   ExtensionModule,
@@ -21,7 +21,6 @@ import {
   ContributionPoints,
   RegisteredPanel,
   MessageConverter,
-  RegisteredMessageAdapter,
   RegisteredMessageContractConverter,
 } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { ExtensionInfo } from "@lichtblick/suite-base/types/Extensions";
@@ -36,8 +35,8 @@ export function buildContributionPoints(
   // the fully qualified id is the extension name + panel name
   const panels: Record<string, RegisteredPanel> = {};
   const messageConverters: RegisterMessageConverterArgs<unknown>[] = [];
-  const messageAdapters: MessageAdapter<unknown>[] = [];
-  const messageContractConverters: MessageContractConverter<unknown>[] = [];
+  const messageContractDecoders: RegisterMessageContractDecoderArgs<unknown>[] = [];
+  const messageContractConverters: RegisterMessageContractConverterArgs<unknown>[] = [];
   const panelSettings: ExtensionSettings = {};
   const topicAliasFunctions: ContributionPoints["topicAliasFunctions"] = [];
   const cameraModels: CameraModelsMap = new Map();
@@ -94,21 +93,31 @@ export function buildContributionPoints(
       _.merge(panelSettings, converterSettings);
     },
 
-    registerMessageAdapter: <Decoded>(messageAdapter: MessageAdapter<Decoded>) => {
+    registerMessageContractDecoder: <Decoded>(
+      messageContractDecoder: RegisterMessageContractDecoderArgs<Decoded>,
+    ) => {
       log.debug(
-        `Extension ${extension.qualifiedName} registering message adapter: ${messageAdapter.id}`,
+        `Extension ${extension.qualifiedName} registering message contract decoder: ${messageContractDecoder.id}`,
       );
-      if (messageAdapters.some((adapter) => adapter.id === messageAdapter.id)) {
+      if (
+        messageContractDecoders.some((registered) => registered.id === messageContractDecoder.id)
+      ) {
         log.warn(
-          `Extension ${extension.qualifiedName} registered duplicate message adapter id: ${messageAdapter.id}`,
+          `Extension ${extension.qualifiedName} registered duplicate message contract decoder id: ${messageContractDecoder.id}`,
         );
         return;
       }
-      messageAdapters.push(messageAdapter as RegisteredMessageAdapter);
+      messageContractDecoders.push(messageContractDecoder);
+    },
+
+    registerMessageAdapter: <Decoded>(
+      messageAdapter: RegisterMessageContractDecoderArgs<Decoded>,
+    ) => {
+      ctx.registerMessageContractDecoder(messageAdapter);
     },
 
     registerMessageContractConverter: <Decoded>(
-      messageContractConverter: MessageContractConverter<Decoded>,
+      messageContractConverter: RegisterMessageContractConverterArgs<Decoded>,
     ) => {
       log.debug(
         `Extension ${extension.qualifiedName} registering message contract converter: ${messageContractConverter.id}`,
@@ -153,8 +162,8 @@ export function buildContributionPoints(
   return {
     panels,
     messageConverters,
-    messageAdapters: messageAdapters.map((adapter) => ({
-      ...adapter,
+    messageContractDecoders: messageContractDecoders.map((decoder) => ({
+      ...decoder,
       extensionNamespace: extension.namespace,
       extensionId: extension.id,
     })),

@@ -26,7 +26,7 @@ export function createMessageRangeIterator(params: CreateMessageRangeIteratorPar
     rawBatchIterator,
     sortedTopics,
     messageConverters,
-    messageAdapters,
+    messageContractDecoders,
     messageContractConverters,
   } = params;
 
@@ -55,7 +55,7 @@ export function createMessageRangeIterator(params: CreateMessageRangeIteratorPar
           [subscription],
           sortedTopics,
           messageConverters,
-          messageAdapters,
+          messageContractDecoders,
           messageContractConverters,
         );
 

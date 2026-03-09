@@ -6,9 +6,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import {
-  MessageAdapter,
-  MessageContractConverter,
   PanelExtensionContext,
+  RegisterMessageContractConverterArgs,
+  RegisterMessageContractDecoderArgs,
   RegisterMessageConverterArgs,
 } from "@lichtblick/suite";
 import { IteratorResult } from "@lichtblick/suite-base/players/IterablePlayer/IIterableSource";
@@ -101,6 +101,6 @@ export type CreateMessageRangeIteratorParams = {
   rawBatchIterator: AsyncIterableIterator<Readonly<IteratorResult>>;
   sortedTopics: readonly Topic[];
   messageConverters: readonly MessageConverter[];
-  messageAdapters?: readonly MessageAdapter<unknown>[];
-  messageContractConverters?: readonly MessageContractConverter<unknown>[];
+  messageContractDecoders?: readonly RegisterMessageContractDecoderArgs<unknown>[];
+  messageContractConverters?: readonly RegisterMessageContractConverterArgs<unknown>[];
 };

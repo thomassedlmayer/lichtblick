@@ -1,14 +1,32 @@
 // SPDX-FileCopyrightText: Copyright (C) 2023-2026 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
 // SPDX-License-Identifier: MPL-2.0
 
-import type { MessageAdapter } from "@lichtblick/suite";
+import type { RegisterMessageContractDecoderArgs } from "@lichtblick/suite";
 
-let registeredMessageAdapters: readonly MessageAdapter<unknown>[] = [];
+let registeredMessageContractDecoders: readonly RegisterMessageContractDecoderArgs<unknown>[] = [];
 
-export function setRegisteredMessageAdapters(adapters: readonly MessageAdapter<unknown>[]): void {
-  registeredMessageAdapters = adapters;
+export function setRegisteredMessageContractDecoders(
+  decoders: readonly RegisterMessageContractDecoderArgs<unknown>[],
+): void {
+  registeredMessageContractDecoders = decoders;
 }
 
-export function getRegisteredMessageAdapters(): readonly MessageAdapter<unknown>[] {
-  return registeredMessageAdapters;
+export function getRegisteredMessageContractDecoders(): readonly RegisterMessageContractDecoderArgs<unknown>[] {
+  return registeredMessageContractDecoders;
+}
+
+/**
+ * @deprecated Use setRegisteredMessageContractDecoders.
+ */
+export function setRegisteredMessageAdapters(
+  adapters: readonly RegisterMessageContractDecoderArgs<unknown>[],
+): void {
+  setRegisteredMessageContractDecoders(adapters);
+}
+
+/**
+ * @deprecated Use getRegisteredMessageContractDecoders.
+ */
+export function getRegisteredMessageAdapters(): readonly RegisterMessageContractDecoderArgs<unknown>[] {
+  return getRegisteredMessageContractDecoders();
 }

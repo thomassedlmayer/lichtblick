@@ -104,8 +104,8 @@ function selectContext(ctx: MessagePipelineContext) {
 function selectInstalledMessageConverters(state: ExtensionCatalog) {
   return state.installedMessageConverters;
 }
-function selectInstalledMessageAdapters(state: ExtensionCatalog) {
-  return state.installedMessageAdapters;
+function selectInstalledMessageContractDecoders(state: ExtensionCatalog) {
+  return state.installedMessageContractDecoders;
 }
 function selectInstalledMessageContractConverters(state: ExtensionCatalog) {
   return state.installedMessageContractConverters;
@@ -152,7 +152,7 @@ function PanelExtensionAdapter(
   const [forceConversion, setForceConversion] = useState(new Set<string>());
   const [watchedFields, setWatchedFields] = useState(new Set<keyof RenderState>());
   const messageConverters = useExtensionCatalog(selectInstalledMessageConverters);
-  const messageAdapters = useExtensionCatalog(selectInstalledMessageAdapters);
+  const messageContractDecoders = useExtensionCatalog(selectInstalledMessageContractDecoders);
   const messageContractConverters = useExtensionCatalog(selectInstalledMessageContractConverters);
 
   const [localSubscriptions, setLocalSubscriptions] = useState<Subscription[]>([]);
@@ -258,7 +258,7 @@ function PanelExtensionAdapter(
       globalVariables,
       hoverValue,
       messageConverters,
-      messageAdapters,
+      messageContractDecoders,
       messageContractConverters,
       playerState,
       sharedPanelState,
@@ -312,7 +312,7 @@ function PanelExtensionAdapter(
     hoverValue,
     localSubscriptions,
     messageConverters,
-    messageAdapters,
+    messageContractDecoders,
     messageContractConverters,
     messageEvents,
     panelId,
@@ -621,7 +621,7 @@ function PanelExtensionAdapter(
           rawBatchIterator,
           sortedTopics,
           messageConverters: messageConverters ?? [],
-          messageAdapters: messageAdapters ?? [],
+          messageContractDecoders: messageContractDecoders ?? [],
           messageContractConverters: messageContractConverters ?? [],
         });
 
@@ -659,7 +659,7 @@ function PanelExtensionAdapter(
     updatePanelSettingsTree,
     setDefaultPanelTitle,
     setMessagePathDropConfig,
-    messageAdapters,
+    messageContractDecoders,
     messageContractConverters,
   ]);
 

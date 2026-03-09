@@ -140,7 +140,7 @@ export type ChannelMeta = {
   fileMetadata?: Readonly<Record<string, Readonly<Record<string, string>>>>;
 };
 
-export type MessageAdapter<Decoded> = {
+export type RegisterMessageContractDecoderArgs<Decoded> = {
   id: string;
   priority?: number;
   sourceSchemas: readonly string[];
@@ -151,7 +151,7 @@ export type MessageAdapter<Decoded> = {
   validateInput?(msg: unknown): msg is Decoded;
 };
 
-export type MessageContractConverter<Decoded> = {
+export type RegisterMessageContractConverterArgs<Decoded> = {
   id: string;
   requiresContract: RequiredMessageContract;
   toSchemaName: string;
@@ -646,14 +646,16 @@ export interface ExtensionContext {
   registerMessageConverter<Src>(args: RegisterMessageConverterArgs<Src>): void;
 
   /**
-   * Register a message adapter that owns source deserialization and contract publication.
+   * Register a message contract decoder that owns source deserialization and contract publication.
    */
-  registerMessageAdapter<Decoded>(adapter: MessageAdapter<Decoded>): void;
+  registerMessageContractDecoder<Decoded>(args: RegisterMessageContractDecoderArgs<Decoded>): void;
 
   /**
    * Register a converter that runs on adapter-decoded payloads selected by contract.
    */
-  registerMessageContractConverter<Decoded>(converter: MessageContractConverter<Decoded>): void;
+  registerMessageContractConverter<Decoded>(
+    args: RegisterMessageContractConverterArgs<Decoded>,
+  ): void;
 
   /**
    * Registers a new alias function with the extension context. The function will be
