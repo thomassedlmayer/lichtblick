@@ -16,7 +16,12 @@
 
 import { MessageDefinition } from "@lichtblick/message-definition";
 import { Time } from "@lichtblick/rostime";
-import type { MessageEvent, Metadata, ParameterValue } from "@lichtblick/suite";
+import type {
+  MessageEvent,
+  Metadata,
+  ParameterValue,
+  ProvidedMessageContract,
+} from "@lichtblick/suite";
 import { Immutable } from "@lichtblick/suite";
 import { Asset } from "@lichtblick/suite-base/components/PanelExtensionAdapter";
 import { GlobalVariables } from "@lichtblick/suite-base/hooks/useGlobalVariables";
@@ -221,6 +226,14 @@ export type Topic = {
   schemaName: string | undefined;
   // Name of the topic before topic aliasing, if any.
   aliasedFromName?: string;
+  // Optional source wire encoding.
+  messageEncoding?: string;
+  // Optional source schema encoding.
+  schemaEncoding?: string;
+  // Optional source schema bytes.
+  schemaData?: Uint8Array;
+  // Optional adapter-provided contract describing decoded payload semantics.
+  providedContract?: ProvidedMessageContract;
 };
 
 export type TopicWithSchemaName = Topic & { schemaName: string };

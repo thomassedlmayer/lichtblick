@@ -11,6 +11,8 @@ import { StoreApi, useStore } from "zustand";
 import { CameraModelsMap } from "@lichtblick/den/image/types";
 import { useGuaranteedContext } from "@lichtblick/hooks";
 import {
+  MessageAdapter,
+  MessageContractConverter,
   ExtensionPanelRegistration,
   Immutable,
   PanelSettings,
@@ -86,6 +88,8 @@ export type ExtensionCatalog = Immutable<{
   installedExtensions: undefined | ExtensionInfo[];
   installedPanels: undefined | Record<string, RegisteredPanel>;
   installedMessageConverters: undefined | Omit<MessageConverter, "panelSettings">[];
+  installedMessageAdapters?: undefined | RegisteredMessageAdapter[];
+  installedMessageContractConverters?: undefined | RegisteredMessageContractConverter[];
   installedTopicAliasFunctions: undefined | TopicAliasFunctions;
   installedCameraModels: CameraModelsMap;
   panelSettings: undefined | ExtensionSettings;
@@ -96,9 +100,21 @@ export type MessageConverter = RegisterMessageConverterArgs<unknown> & {
   extensionId?: string;
 };
 
+export type RegisteredMessageAdapter = MessageAdapter<unknown> & {
+  extensionNamespace?: Namespace;
+  extensionId?: string;
+};
+
+export type RegisteredMessageContractConverter = MessageContractConverter<unknown> & {
+  extensionNamespace?: Namespace;
+  extensionId?: string;
+};
+
 export type ContributionPoints = {
   panels: Record<string, RegisteredPanel>;
   messageConverters: MessageConverter[];
+  messageAdapters: RegisteredMessageAdapter[];
+  messageContractConverters: RegisteredMessageContractConverter[];
   topicAliasFunctions: TopicAliasFunctions;
   panelSettings: ExtensionSettings;
   cameraModels: CameraModelsMap;

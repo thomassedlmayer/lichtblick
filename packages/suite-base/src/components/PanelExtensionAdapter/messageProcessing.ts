@@ -6,26 +6,59 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import * as _ from "lodash-es";
+import { satisfies, valid, validRange } from "semver";
 import { Opaque } from "ts-essentials";
 
+import Logger from "@lichtblick/log";
 import {
   Immutable,
+  MessageAdapter,
   MessageEvent,
-  RegisterMessageConverterArgs,
   Subscription,
 } from "@lichtblick/suite";
+import type {
+  MessageConverter,
+  RegisteredMessageContractConverter,
+} from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { GlobalVariables } from "@lichtblick/suite-base/hooks/useGlobalVariables";
 import { Topic as PlayerTopic } from "@lichtblick/suite-base/players/types";
-import { Namespace } from "@lichtblick/suite-base/types";
 
 // Branded string to ensure that users go through the `converterKey` function to compute a lookup key
 type ConverterKey = Opaque<string, "ConverterKey">;
 
-type MessageConverter = RegisterMessageConverterArgs<unknown> & {
-  extensionNamespace?: Namespace;
+type ContractConverter = RegisteredMessageContractConverter;
+type RequiredContractLike = {
+  contractId: string;
+  contractVersionRange: string;
+  schemaHash?: string;
+};
+type ProvidedContractLike = {
+  contractId: string;
+  contractVersion: string;
+  schemaHash?: string;
 };
 
 type TopicSchemaConverterMap = Map<ConverterKey, MessageConverter[]>;
+type TopicSchemaContractConverterMap = Map<ConverterKey, ContractConverter[]>;
+type TopicJsonAdapterMap = Map<string, MessageAdapter<unknown>>;
+
+const log = Logger.getLogger(__filename);
+
+function isRequiredContractLike(value: unknown): value is RequiredContractLike {
+  if (typeof value !== "object" || value == undefined) {
+    return false;
+  }
+  const maybe = value as Partial<RequiredContractLike>;
+  return typeof maybe.contractId === "string" && typeof maybe.contractVersionRange === "string";
+}
+
+function isProvidedContractLike(value: unknown): value is ProvidedContractLike {
+  if (typeof value !== "object" || value == undefined) {
+    return false;
+  }
+  const maybe = value as Partial<ProvidedContractLike>;
+  return typeof maybe.contractId === "string" && typeof maybe.contractVersion === "string";
+}
 
 // Create a string lookup key from a message event
 //
@@ -69,6 +102,51 @@ export function convertMessage(
   }
 }
 
+export function convertContractMessage(
+  messageEvent: Immutable<MessageEvent>,
+  converters: Immutable<TopicSchemaContractConverterMap>,
+  convertedMessages: MessageEvent[],
+  globalVariables?: Readonly<GlobalVariables>,
+): void {
+  const key = converterKey(messageEvent.topic, messageEvent.schemaName);
+  const matchedConverters = converters.get(key);
+  for (const converter of matchedConverters ?? []) {
+    const convertedMessage = converter.convert(messageEvent.message, messageEvent, globalVariables);
+    if (convertedMessage == undefined) {
+      continue;
+    }
+    convertedMessages.push({
+      topic: messageEvent.topic,
+      schemaName: converter.toSchemaName,
+      receiveTime: messageEvent.receiveTime,
+      message: convertedMessage,
+      originalMessageEvent: messageEvent,
+      sizeInBytes: messageEvent.sizeInBytes,
+      topicConfig: messageEvent.topicConfig,
+    });
+  }
+}
+
+export function projectMessageForJsonPanels(
+  messageEvent: Immutable<MessageEvent>,
+  adapterByTopic: Immutable<TopicJsonAdapterMap>,
+  topicMetaByName: Immutable<Map<string, PlayerTopic>>,
+): MessageEvent {
+  const adapter = adapterByTopic.get(messageEvent.topic);
+  if (adapter?.toJson == undefined) {
+    return messageEvent;
+  }
+  const topicMeta = topicMetaByName.get(messageEvent.topic);
+  const projected = adapter.toJson(messageEvent.message, {
+    topic: messageEvent.topic,
+    schemaName: topicMeta?.schemaName,
+    messageEncoding: topicMeta?.messageEncoding,
+    schemaEncoding: topicMeta?.schemaEncoding,
+    schemaData: topicMeta?.schemaData,
+  });
+  return { ...messageEvent, message: projected };
+}
+
 /**
  * Returns a new map consisting of all items in `a` not present in `b`.
  */
@@ -97,6 +175,8 @@ export type TopicSchemaConversions = {
   // converters to run by looking up the topic + schema of the message event in
   // this map.
   topicSchemaConverters: TopicSchemaConverterMap;
+  topicSchemaContractConverters: TopicSchemaContractConverterMap;
+  topicJsonAdapters: TopicJsonAdapterMap;
 };
 
 /**
@@ -109,17 +189,76 @@ export function collateTopicSchemaConversions(
   subscriptions: readonly Subscription[],
   sortedTopics: readonly PlayerTopic[],
   messageConverters: undefined | readonly MessageConverter[],
+  messageAdapters?: readonly MessageAdapter<unknown>[],
+  messageContractConverters?: readonly ContractConverter[],
 ): TopicSchemaConversions {
   const topicSchemaConverters: TopicSchemaConverterMap = new Map();
+  const topicSchemaContractConverters: TopicSchemaContractConverterMap = new Map();
+  const topicJsonAdapters: TopicJsonAdapterMap = new Map();
   const unconvertedSubscriptionTopics = new Set<string>();
+  const adapterByContractId = new Map(
+    (messageAdapters ?? [])
+      .filter((adapter) => adapter.providedContract != undefined)
+      .map((adapter) => [adapter.providedContract.contractId, adapter] as const),
+  );
 
   // Bin the subscriptions into two sets: those which want a conversion and those that do not.
   //
   // For the subscriptions that want a conversion, if the topic schemaName matches the requested
   // convertTo, then we don't need to do a conversion.
   for (const subscription of subscriptions) {
+    const subscriberTopic = sortedTopics.find((topic) => topic.name === subscription.topic);
+    if (!subscriberTopic) {
+      continue;
+    }
+
+    if (isRequiredContractLike(subscription.requiresContract)) {
+      if (
+        !isRequiredContractSatisfied(
+          subscriberTopic.providedContract,
+          subscription.requiresContract,
+        )
+      ) {
+        log.warn(
+          `Unmet required contract for topic '${subscription.topic}'. Required ${subscription.requiresContract.contractId}@${subscription.requiresContract.contractVersionRange}.`,
+        );
+        continue;
+      }
+
+      if (!subscription.convertTo) {
+        unconvertedSubscriptionTopics.add(subscription.topic);
+        continue;
+      }
+
+      const key = converterKey(subscription.topic, subscriberTopic.schemaName ?? "<no-schema>");
+      let existingContractConverters = topicSchemaContractConverters.get(key);
+      const converters = (messageContractConverters ?? []).filter(
+        (converter) =>
+          converter.toSchemaName === subscription.convertTo &&
+          isRequiredContractSatisfied(subscriberTopic.providedContract, converter.requiresContract),
+      );
+      const converter = _.minBy(converters, (conv) => conv.extensionNamespace ?? "unknown");
+      if (converter != undefined) {
+        existingContractConverters ??= [];
+        existingContractConverters.push(converter);
+        topicSchemaContractConverters.set(key, existingContractConverters);
+      } else {
+        log.warn(
+          `No contract converter found for topic '${subscription.topic}' with target schema '${subscription.convertTo}'.`,
+        );
+      }
+      continue;
+    }
+
     if (!subscription.convertTo) {
       unconvertedSubscriptionTopics.add(subscription.topic);
+      const topicContract = subscriberTopic.providedContract;
+      if (topicContract != undefined) {
+        const adapter = adapterByContractId.get(topicContract.contractId);
+        if (adapter?.toJson != undefined) {
+          topicJsonAdapters.set(subscription.topic, adapter);
+        }
+      }
       continue;
     }
 
@@ -135,11 +274,6 @@ export function collateTopicSchemaConversions(
 
     // Since we don't have an existing topic with out destination schema we need to find
     // a converter that will convert from the topic to the desired schema
-    const subscriberTopic = sortedTopics.find((topic) => topic.name === subscription.topic);
-    if (!subscriberTopic) {
-      continue;
-    }
-
     const key = converterKey(subscription.topic, subscriberTopic.schemaName ?? "<no-schema>");
     let existingConverters = topicSchemaConverters.get(key);
 
@@ -164,10 +298,67 @@ export function collateTopicSchemaConversions(
       existingConverters ??= [];
       existingConverters.push(converter);
       topicSchemaConverters.set(key, existingConverters);
+      continue;
+    }
+
+    // Fallback for adapter-backed streams: if no legacy schema converter exists, try contract converters.
+    const contractConverters = (messageContractConverters ?? []).filter(
+      (conv) =>
+        conv.toSchemaName === subscription.convertTo &&
+        isRequiredContractSatisfied(subscriberTopic.providedContract, conv.requiresContract),
+    );
+    const contractConverter = _.minBy(
+      contractConverters,
+      (conv) => conv.extensionNamespace ?? "unknown",
+    );
+    if (contractConverter != undefined) {
+      let existingContractConverters = topicSchemaContractConverters.get(key);
+      existingContractConverters ??= [];
+      existingContractConverters.push(contractConverter);
+      topicSchemaContractConverters.set(key, existingContractConverters);
     }
   }
 
-  return { unconvertedSubscriptionTopics, topicSchemaConverters };
+  return {
+    unconvertedSubscriptionTopics,
+    topicSchemaConverters,
+    topicSchemaContractConverters,
+    topicJsonAdapters,
+  };
+}
+
+export function isRequiredContractSatisfied(
+  providedContractValue: unknown,
+  requiredContractValue: unknown,
+): boolean {
+  if (!isProvidedContractLike(providedContractValue)) {
+    return false;
+  }
+  if (!isRequiredContractLike(requiredContractValue)) {
+    return false;
+  }
+  const providedContract = providedContractValue;
+  const requiredContract = requiredContractValue;
+
+  if (providedContract.contractId !== requiredContract.contractId) {
+    return false;
+  }
+  if (
+    !valid(providedContract.contractVersion) ||
+    !validRange(requiredContract.contractVersionRange)
+  ) {
+    return providedContract.contractVersion === requiredContract.contractVersionRange;
+  }
+  if (!satisfies(providedContract.contractVersion, requiredContract.contractVersionRange)) {
+    return false;
+  }
+  if (
+    requiredContract.schemaHash != undefined &&
+    providedContract.schemaHash !== requiredContract.schemaHash
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**

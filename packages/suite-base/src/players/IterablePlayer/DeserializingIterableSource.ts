@@ -8,7 +8,7 @@
 import { pickFields } from "@lichtblick/den/records";
 import Logger from "@lichtblick/log";
 import { parseChannel } from "@lichtblick/mcap-support";
-import { MessageEvent } from "@lichtblick/suite";
+import { ChannelMeta, MessageAdapter, MessageEvent } from "@lichtblick/suite";
 import {
   MessageIteratorArgs,
   IteratorResult,
@@ -17,6 +17,8 @@ import {
   Initialization,
   IIterableSource,
 } from "@lichtblick/suite-base/players/IterablePlayer/IIterableSource";
+import { getRegisteredMessageAdapters } from "@lichtblick/suite-base/players/IterablePlayer/messageAdapterRegistry";
+import { resolveMessageAdapter } from "@lichtblick/suite-base/players/IterablePlayer/resolveMessageAdapter";
 import { estimateObjectSize } from "@lichtblick/suite-base/players/messageMemoryEstimation";
 import { SubscribePayload } from "@lichtblick/suite-base/players/types";
 
@@ -38,6 +40,7 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
   #deserializersByTopic: Record<string, (data: ArrayBufferView) => unknown> = {};
   #messageSizeEstimateBySubHash: Record<string, number> = {};
   #connectionIdByTopic: Record<string, number> = {};
+  #adapterByTopic: Record<string, MessageAdapter<unknown>> = {};
 
   public readonly sourceType = "deserialized";
 
@@ -53,19 +56,40 @@ export class DeserializingIterableSource implements IDeserializedIterableSource 
     const alerts: Initialization["alerts"] = [];
 
     let nextConnectionId = 0;
-    for (const {
-      name: topic,
-      messageEncoding,
-      schemaName,
-      schemaData,
-      schemaEncoding,
-    } of initResult.topics) {
+    for (const topicWithDecodingInfo of initResult.topics) {
+      const {
+        name: topic,
+        messageEncoding,
+        schemaName,
+        schemaData,
+        schemaEncoding,
+      } = topicWithDecodingInfo;
       this.#connectionIdByTopic[topic] = nextConnectionId++;
 
       if (this.#deserializersByTopic[topic] == undefined) {
         try {
           if (messageEncoding == undefined) {
             throw new Error(`Unspecified message encoding for topic ${topic}`);
+          }
+
+          const channelMeta: ChannelMeta = {
+            topic,
+            schemaName,
+            messageEncoding,
+            schemaEncoding,
+            schemaData,
+          };
+
+          const resolvedAdapter = resolveMessageAdapter(
+            getRegisteredMessageAdapters(),
+            channelMeta,
+          );
+          if (resolvedAdapter != undefined) {
+            this.#adapterByTopic[topic] = resolvedAdapter;
+            this.#deserializersByTopic[topic] = (data: ArrayBufferView) =>
+              resolvedAdapter.deserialize(data, channelMeta);
+            topicWithDecodingInfo.providedContract = resolvedAdapter.providedContract;
+            continue;
           }
 
           const schema =

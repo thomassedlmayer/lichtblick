@@ -24,6 +24,7 @@ import {
   IExtensionLoader,
   TypeExtensionLoader,
 } from "@lichtblick/suite-base/services/extension/IExtensionLoader";
+import { setRegisteredMessageAdapters } from "@lichtblick/suite-base/players/IterablePlayer/messageAdapterRegistry";
 import compareVersions from "@lichtblick/suite-base/services/extension/utils/compareVersions";
 import { Namespace } from "@lichtblick/suite-base/types";
 import { ExtensionInfo } from "@lichtblick/suite-base/types/Extensions";
@@ -157,16 +158,27 @@ function createExtensionRegistryStore(
       info: ExtensionInfo,
       {
         messageConverters,
+        messageAdapters,
+        messageContractConverters,
         panelSettings,
         panels,
         topicAliasFunctions,
         cameraModels,
       }: ContributionPoints,
     ) => {
+      setRegisteredMessageAdapters([
+        ...(get().installedMessageAdapters ?? []),
+        ...messageAdapters,
+      ]);
       set((state) => ({
         installedExtensions: _.uniqBy([...(state.installedExtensions ?? []), info], "id"),
         installedPanels: { ...state.installedPanels, ...panels },
         installedMessageConverters: [...state.installedMessageConverters!, ...messageConverters],
+        installedMessageAdapters: [...state.installedMessageAdapters!, ...messageAdapters],
+        installedMessageContractConverters: [
+          ...state.installedMessageContractConverters!,
+          ...messageContractConverters,
+        ],
         installedTopicAliasFunctions: [
           ...state.installedTopicAliasFunctions!,
           ...topicAliasFunctions,
@@ -248,8 +260,15 @@ function createExtensionRegistryStore(
           try {
             installedExtensions.push(extension);
 
-            const { messageConverters, panelSettings, panels, topicAliasFunctions, cameraModels } =
-              contributionPoints;
+            const {
+              messageConverters,
+              messageAdapters,
+              messageContractConverters,
+              panelSettings,
+              panels,
+              topicAliasFunctions,
+              cameraModels,
+            } = contributionPoints;
             const unwrappedExtensionSource = await loadSingleExtension(extension, loader);
             const newContributionPoints = buildContributionPoints(
               extension,
@@ -259,6 +278,8 @@ function createExtensionRegistryStore(
             _.assign(panels, newContributionPoints.panels);
             _.merge(panelSettings, newContributionPoints.panelSettings);
             messageConverters.push(...newContributionPoints.messageConverters);
+            messageAdapters.push(...newContributionPoints.messageAdapters);
+            messageContractConverters.push(...newContributionPoints.messageContractConverters);
             topicAliasFunctions.push(...newContributionPoints.topicAliasFunctions);
 
             newContributionPoints.cameraModels.forEach((builder, name: string) => {
@@ -287,6 +308,8 @@ function createExtensionRegistryStore(
       const installedExtensions: ExtensionInfo[] = [];
       const contributionPoints: ContributionPoints = {
         messageConverters: [],
+        messageAdapters: [],
+        messageContractConverters: [],
         panels: {},
         panelSettings: {},
         topicAliasFunctions: [],
@@ -320,10 +343,13 @@ function createExtensionRegistryStore(
         installedExtensions,
         installedPanels: contributionPoints.panels,
         installedMessageConverters: contributionPoints.messageConverters,
+        installedMessageAdapters: contributionPoints.messageAdapters,
+        installedMessageContractConverters: contributionPoints.messageContractConverters,
         installedTopicAliasFunctions: contributionPoints.topicAliasFunctions,
         installedCameraModels: contributionPoints.cameraModels,
         panelSettings: contributionPoints.panelSettings,
       });
+      setRegisteredMessageAdapters(contributionPoints.messageAdapters);
     };
 
     function removeExtensionData({
@@ -336,6 +362,8 @@ function createExtensionRegistryStore(
         | "installedExtensions"
         | "installedPanels"
         | "installedMessageConverters"
+        | "installedMessageAdapters"
+        | "installedMessageContractConverters"
         | "installedTopicAliasFunctions"
         | "installedCameraModels"
       >;
@@ -354,6 +382,12 @@ function createExtensionRegistryStore(
         ),
         installedPanels: _.pickBy(installedPanels, ({ extensionId }) => extensionId !== id),
         installedMessageConverters: installedMessageConverters?.filter(
+          ({ extensionId }) => extensionId !== id,
+        ),
+        installedMessageAdapters: state.installedMessageAdapters?.filter(
+          ({ extensionId }) => extensionId !== id,
+        ),
+        installedMessageContractConverters: state.installedMessageContractConverters?.filter(
           ({ extensionId }) => extensionId !== id,
         ),
         installedTopicAliasFunctions: installedTopicAliasFunctions?.filter(
@@ -396,6 +430,7 @@ function createExtensionRegistryStore(
       }
 
       set((state) => removeExtensionData({ id: extension.id, state }));
+      setRegisteredMessageAdapters(get().installedMessageAdapters ?? []);
       get().unMarkExtensionAsInstalled(id);
     };
 
@@ -410,6 +445,8 @@ function createExtensionRegistryStore(
       unMarkExtensionAsInstalled,
       installedExtensions: loaders.length === 0 ? [] : undefined,
       installedMessageConverters: mockMessageConverters ?? [],
+      installedMessageAdapters: [],
+      installedMessageContractConverters: [],
       installedPanels: {},
       installedTopicAliasFunctions: [],
       installedCameraModels: new Map(),

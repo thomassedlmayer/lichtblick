@@ -104,6 +104,12 @@ function selectContext(ctx: MessagePipelineContext) {
 function selectInstalledMessageConverters(state: ExtensionCatalog) {
   return state.installedMessageConverters;
 }
+function selectInstalledMessageAdapters(state: ExtensionCatalog) {
+  return state.installedMessageAdapters;
+}
+function selectInstalledMessageContractConverters(state: ExtensionCatalog) {
+  return state.installedMessageContractConverters;
+}
 
 type RenderFn = NonNullable<PanelExtensionContext["onRender"]>;
 /**
@@ -146,6 +152,8 @@ function PanelExtensionAdapter(
   const [forceConversion, setForceConversion] = useState(new Set<string>());
   const [watchedFields, setWatchedFields] = useState(new Set<keyof RenderState>());
   const messageConverters = useExtensionCatalog(selectInstalledMessageConverters);
+  const messageAdapters = useExtensionCatalog(selectInstalledMessageAdapters);
+  const messageContractConverters = useExtensionCatalog(selectInstalledMessageContractConverters);
 
   const [localSubscriptions, setLocalSubscriptions] = useState<Subscription[]>([]);
 
@@ -250,6 +258,8 @@ function PanelExtensionAdapter(
       globalVariables,
       hoverValue,
       messageConverters,
+      messageAdapters,
+      messageContractConverters,
       playerState,
       sharedPanelState,
       sortedTopics,
@@ -302,6 +312,8 @@ function PanelExtensionAdapter(
     hoverValue,
     localSubscriptions,
     messageConverters,
+    messageAdapters,
+    messageContractConverters,
     messageEvents,
     panelId,
     pauseFrame,
@@ -609,6 +621,8 @@ function PanelExtensionAdapter(
           rawBatchIterator,
           sortedTopics,
           messageConverters: messageConverters ?? [],
+          messageAdapters: messageAdapters ?? [],
+          messageContractConverters: messageContractConverters ?? [],
         });
 
         // Call the callback with the processed iterable
@@ -645,6 +659,8 @@ function PanelExtensionAdapter(
     updatePanelSettingsTree,
     setDefaultPanelTitle,
     setMessagePathDropConfig,
+    messageAdapters,
+    messageContractConverters,
   ]);
 
   const panelContainerRef = useRef<HTMLDivElement>(ReactNull);

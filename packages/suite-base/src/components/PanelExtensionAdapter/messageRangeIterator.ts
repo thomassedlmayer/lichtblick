@@ -20,7 +20,15 @@ export function createMessageRangeIterator(params: CreateMessageRangeIteratorPar
   iterable: AsyncIterable<MessageEvent[]>;
   cancel: () => void;
 } {
-  const { topic, convertTo, rawBatchIterator, sortedTopics, messageConverters } = params;
+  const {
+    topic,
+    convertTo,
+    rawBatchIterator,
+    sortedTopics,
+    messageConverters,
+    messageAdapters,
+    messageContractConverters,
+  } = params;
 
   // Create a cancellation token
   let cancelled = false;
@@ -36,17 +44,30 @@ export function createMessageRangeIterator(params: CreateMessageRangeIteratorPar
           : { topic, preload: true };
 
         // Import necessary functions for message processing
-        const { convertMessage, collateTopicSchemaConversions } = await import(
-          "./messageProcessing"
-        );
+        const {
+          convertMessage,
+          convertContractMessage,
+          collateTopicSchemaConversions,
+          projectMessageForJsonPanels,
+        } = await import("./messageProcessing");
 
         const collatedConversions = collateTopicSchemaConversions(
           [subscription],
           sortedTopics,
           messageConverters,
+          messageAdapters,
+          messageContractConverters,
         );
 
-        const { topicSchemaConverters, unconvertedSubscriptionTopics } = collatedConversions;
+        const {
+          topicSchemaConverters,
+          topicSchemaContractConverters,
+          topicJsonAdapters,
+          unconvertedSubscriptionTopics,
+        } = collatedConversions;
+        const topicMetaByName = new Map(
+          sortedTopics.map((sortedTopic) => [sortedTopic.name, sortedTopic]),
+        );
 
         const batchMessages: MessageEvent[] = [];
         let lastBatchTime = performance.now();
@@ -66,11 +87,16 @@ export function createMessageRangeIterator(params: CreateMessageRangeIteratorPar
 
           // If the topic is not in unconvertedSubscriptionTopics, skip conversion
           if (unconvertedSubscriptionTopics.has(msgEvent.topic)) {
-            batchMessages.push(msgEvent);
+            batchMessages.push(
+              projectMessageForJsonPanels(msgEvent, topicJsonAdapters, topicMetaByName),
+            );
           }
           // Apply message conversion if converters exist
           if (topicSchemaConverters.size > 0) {
             convertMessage(msgEvent, topicSchemaConverters, batchMessages);
+          }
+          if (topicSchemaContractConverters.size > 0) {
+            convertContractMessage(msgEvent, topicSchemaContractConverters, batchMessages);
           }
 
           if (performance.now() - lastBatchTime > BATCH_INTERVAL_MS) {

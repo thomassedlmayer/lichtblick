@@ -8,6 +8,8 @@ import { CameraModelsMap } from "@lichtblick/den/image/types";
 import Logger from "@lichtblick/log";
 import {
   RegisterMessageConverterArgs,
+  MessageAdapter,
+  MessageContractConverter,
   ExtensionContext,
   TopicAliasFunction,
   ExtensionModule,
@@ -19,6 +21,8 @@ import {
   ContributionPoints,
   RegisteredPanel,
   MessageConverter,
+  RegisteredMessageAdapter,
+  RegisteredMessageContractConverter,
 } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import { ExtensionInfo } from "@lichtblick/suite-base/types/Extensions";
 
@@ -32,6 +36,8 @@ export function buildContributionPoints(
   // the fully qualified id is the extension name + panel name
   const panels: Record<string, RegisteredPanel> = {};
   const messageConverters: RegisterMessageConverterArgs<unknown>[] = [];
+  const messageAdapters: MessageAdapter<unknown>[] = [];
+  const messageContractConverters: MessageContractConverter<unknown>[] = [];
   const panelSettings: ExtensionSettings = {};
   const topicAliasFunctions: ContributionPoints["topicAliasFunctions"] = [];
   const cameraModels: CameraModelsMap = new Map();
@@ -88,6 +94,38 @@ export function buildContributionPoints(
       _.merge(panelSettings, converterSettings);
     },
 
+    registerMessageAdapter: <Decoded>(messageAdapter: MessageAdapter<Decoded>) => {
+      log.debug(
+        `Extension ${extension.qualifiedName} registering message adapter: ${messageAdapter.id}`,
+      );
+      if (messageAdapters.some((adapter) => adapter.id === messageAdapter.id)) {
+        log.warn(
+          `Extension ${extension.qualifiedName} registered duplicate message adapter id: ${messageAdapter.id}`,
+        );
+        return;
+      }
+      messageAdapters.push(messageAdapter as RegisteredMessageAdapter);
+    },
+
+    registerMessageContractConverter: <Decoded>(
+      messageContractConverter: MessageContractConverter<Decoded>,
+    ) => {
+      log.debug(
+        `Extension ${extension.qualifiedName} registering message contract converter: ${messageContractConverter.id}`,
+      );
+      if (
+        messageContractConverters.some((converter) => converter.id === messageContractConverter.id)
+      ) {
+        log.warn(
+          `Extension ${extension.qualifiedName} registered duplicate message contract converter id: ${messageContractConverter.id}`,
+        );
+        return;
+      }
+      messageContractConverters.push(
+        messageContractConverter as RegisteredMessageContractConverter,
+      );
+    },
+
     registerTopicAliases: (aliasFunction: TopicAliasFunction) => {
       topicAliasFunctions.push({ aliasFunction, extensionId: extension.id });
     },
@@ -115,6 +153,16 @@ export function buildContributionPoints(
   return {
     panels,
     messageConverters,
+    messageAdapters: messageAdapters.map((adapter) => ({
+      ...adapter,
+      extensionNamespace: extension.namespace,
+      extensionId: extension.id,
+    })),
+    messageContractConverters: messageContractConverters.map((converter) => ({
+      ...converter,
+      extensionNamespace: extension.namespace,
+      extensionId: extension.id,
+    })),
     topicAliasFunctions,
     panelSettings,
     cameraModels,

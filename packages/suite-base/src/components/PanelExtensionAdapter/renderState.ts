@@ -14,6 +14,7 @@ import { compare, toSec } from "@lichtblick/rostime";
 import {
   AppSettingValue,
   Immutable,
+  MessageAdapter,
   MessageEvent,
   ParameterValue,
   RegisterMessageConverterArgs,
@@ -21,6 +22,7 @@ import {
   Subscription,
   Topic,
 } from "@lichtblick/suite";
+import type { RegisteredMessageContractConverter } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
 import {
   EMPTY_GLOBAL_VARIABLES,
   GlobalVariables,
@@ -34,9 +36,12 @@ import { HoverValue } from "@lichtblick/suite-base/types/hoverValue";
 
 import {
   collateTopicSchemaConversions,
+  convertContractMessage,
   convertMessage,
   forEachSortedArrays,
+  isRequiredContractSatisfied,
   mapDifference,
+  projectMessageForJsonPanels,
   TopicSchemaConversions,
 } from "./messageProcessing";
 
@@ -53,6 +58,8 @@ export type BuilderRenderStateInput = Immutable<{
   globalVariables: GlobalVariables;
   hoverValue: HoverValue | undefined;
   messageConverters?: readonly RegisterMessageConverterArgs<unknown>[];
+  messageAdapters?: readonly MessageAdapter<unknown>[];
+  messageContractConverters?: readonly RegisteredMessageContractConverter[];
   playerState: PlayerState | undefined;
   sharedPanelState: Record<string, unknown> | undefined;
   sortedTopics: readonly PlayerTopic[];
@@ -81,6 +88,9 @@ function initRenderStateBuilder(): BuildRenderStateFn {
   let prevSeekTime: number | undefined;
   let prevSortedTopics: BuilderRenderStateInput["sortedTopics"] | undefined;
   let prevMessageConverters: BuilderRenderStateInput["messageConverters"] | undefined;
+  let prevMessageContractConverters:
+    | BuilderRenderStateInput["messageContractConverters"]
+    | undefined;
   let prevSharedPanelState: BuilderRenderStateInput["sharedPanelState"];
   let prevCurrentFrame: Immutable<RenderState["currentFrame"]>;
   let prevCollatedConversions: undefined | TopicSchemaConversions;
@@ -113,6 +123,8 @@ function initRenderStateBuilder(): BuildRenderStateFn {
       globalVariables,
       hoverValue,
       messageConverters,
+      messageAdapters,
+      messageContractConverters,
       playerState,
       sharedPanelState,
       sortedTopics,
@@ -129,6 +141,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
       _.keyBy(sortedTopics, "name"),
       ({ schemaName }) => schemaName,
     );
+    const topicMetaByName = new Map(sortedTopics.map((topic) => [topic.name, topic]));
 
     // Should render indicates whether any fields of render state are updated
     const shouldRender = { value: false };
@@ -143,8 +156,15 @@ function initRenderStateBuilder(): BuildRenderStateFn {
       subscriptions,
       sortedTopics,
       messageConverters,
+      messageAdapters,
+      messageContractConverters,
     );
-    const { unconvertedSubscriptionTopics, topicSchemaConverters } = collatedConversions;
+    const {
+      unconvertedSubscriptionTopics,
+      topicSchemaConverters,
+      topicSchemaContractConverters,
+      topicJsonAdapters,
+    } = collatedConversions;
     const conversionsChanged = prevCollatedConversions !== collatedConversions;
     const newConverters = memoMapDifference(
       topicSchemaConverters,
@@ -193,7 +213,11 @@ function initRenderStateBuilder(): BuildRenderStateFn {
     }
 
     if (watchedFields.has("topics")) {
-      if (sortedTopics !== prevSortedTopics || prevMessageConverters !== messageConverters) {
+      if (
+        sortedTopics !== prevSortedTopics ||
+        prevMessageConverters !== messageConverters ||
+        prevMessageContractConverters !== messageContractConverters
+      ) {
         shouldRender.value = true;
 
         const topics = sortedTopics.map((topic): Topic => {
@@ -220,6 +244,25 @@ function initRenderStateBuilder(): BuildRenderStateFn {
             }
           }
 
+          if (messageContractConverters != undefined && topic.providedContract != undefined) {
+            const convertibleTo = [...(newTopic.convertibleTo ?? [])];
+            for (const converter of messageContractConverters) {
+              if (typeof converter.toSchemaName !== "string") {
+                continue;
+              }
+              const toSchemaName = String(converter.toSchemaName);
+              if (
+                isRequiredContractSatisfied(topic.providedContract, converter.requiresContract) &&
+                !convertibleTo.includes(toSchemaName)
+              ) {
+                convertibleTo.push(toSchemaName);
+              }
+            }
+            if (convertibleTo.length > 0) {
+              newTopic.convertibleTo = convertibleTo;
+            }
+          }
+
           return newTopic;
         });
 
@@ -239,7 +282,13 @@ function initRenderStateBuilder(): BuildRenderStateFn {
         const postProcessedFrame: MessageEvent[] = [];
         for (const messageEvent of currentFrame) {
           if (unconvertedSubscriptionTopics.has(messageEvent.topic)) {
-            postProcessedFrame.push(messageEvent);
+            postProcessedFrame.push(
+              projectMessageForJsonPanels(
+                messageEvent,
+                topicJsonAdapters,
+                topicMetaByName,
+              ),
+            );
           }
 
           const schemaName = topicToSchemaNameMap[messageEvent.topic];
@@ -247,6 +296,12 @@ function initRenderStateBuilder(): BuildRenderStateFn {
             convertMessage(
               { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
               topicSchemaConverters,
+              postProcessedFrame,
+              { ...globalVariables } as Readonly<GlobalVariables>,
+            );
+            convertContractMessage(
+              { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
+              topicSchemaContractConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
             );
@@ -268,6 +323,12 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
             );
+            convertContractMessage(
+              { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
+              topicSchemaContractConverters,
+              postProcessedFrame,
+              { ...globalVariables } as Readonly<GlobalVariables>,
+            );
           }
         }
         renderState.currentFrame = postProcessedFrame;
@@ -282,6 +343,12 @@ function initRenderStateBuilder(): BuildRenderStateFn {
             convertMessage(
               { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
               topicSchemaConverters,
+              postProcessedFrame,
+              { ...globalVariables } as Readonly<GlobalVariables>,
+            );
+            convertContractMessage(
+              { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
+              topicSchemaContractConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
             );
@@ -331,7 +398,13 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               // we include all unconverted and converted messages, unlike in
               // currentFrame.
               if (unconvertedSubscriptionTopics.has(messageEvent.topic)) {
-                frames.push(messageEvent);
+                frames.push(
+                  projectMessageForJsonPanels(
+                    messageEvent,
+                    topicJsonAdapters,
+                    topicMetaByName,
+                  ),
+                );
               }
 
               const schemaName = topicToSchemaNameMap[messageEvent.topic];
@@ -339,6 +412,11 @@ function initRenderStateBuilder(): BuildRenderStateFn {
                 convertMessage(
                   { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
                   topicSchemaConverters,
+                  frames,
+                );
+                convertContractMessage(
+                  { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
+                  topicSchemaContractConverters,
                   frames,
                 );
               }
@@ -403,6 +481,11 @@ function initRenderStateBuilder(): BuildRenderStateFn {
           topicSchemaConverters,
           postProcessedFrame,
         );
+        convertContractMessage(
+          { ...messageEvent, topicConfig: configTopics[topic] },
+          topicSchemaContractConverters,
+          postProcessedFrame,
+        );
       }
 
       renderState.currentFrame = postProcessedFrame;
@@ -412,6 +495,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
     // Update the prev fields with the latest values at the end of all the watch steps
     // Several of the watch steps depend on the comparison against prev and new values
     prevMessageConverters = messageConverters;
+    prevMessageContractConverters = messageContractConverters;
     prevCollatedConversions = collatedConversions;
     prevVariables = globalVariables;
 

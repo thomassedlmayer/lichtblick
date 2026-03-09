@@ -74,6 +74,15 @@ export type Topic = {
    * of the convertibleTo schemas using the convertTo option.
    */
   convertibleTo?: readonly string[];
+
+  /** Optional source wire encoding (for example `protobuf`, `cdr`). */
+  messageEncoding?: string;
+  /** Optional source schema encoding as exposed by the data source. */
+  schemaEncoding?: string;
+  /** Optional source schema bytes from the data source. */
+  schemaData?: Uint8Array;
+  /** Optional decoded payload contract exposed by a selected host adapter. */
+  providedContract?: ProvidedMessageContract;
 };
 
 export type Subscription = {
@@ -88,12 +97,70 @@ export type Subscription = {
   convertTo?: string;
 
   /**
+   * Optional contract requirement for adapter-backed decoded payloads.
+   * If provided, host runtime should only deliver messages when a compatible
+   * adapter contract is available for this topic.
+   */
+  requiresContract?: RequiredMessageContract;
+
+  /**
    * Setting preload to _true_ hints to the data source that it should attempt to load all available
    * messages for the topic. The default behavior is to only load messages for the current frame.
    *
    * **Only** topics with `preload: true` are available in the `allFrames` render state.
    */
   preload?: boolean;
+};
+
+export type ProvidedMessageContract = {
+  contractId: string;
+  contractVersion: string;
+  schemaName: string;
+  messageEncoding: string;
+  schemaEncoding?: string;
+  channelVersionMetadataKey?: string;
+  schemaHash?: string;
+};
+
+export type RequiredMessageContract = {
+  contractId: string;
+  contractVersionRange: string;
+  schemaHash?: string;
+};
+
+export type ChannelMeta = {
+  topic: string;
+  schemaName?: string;
+  messageEncoding?: string;
+  schemaEncoding?: string;
+  schemaData?: Uint8Array;
+  schemaHash?: string;
+  schemaVersion?: string;
+  channelMetadata?: Readonly<Record<string, string>>;
+  fileMetadata?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+};
+
+export type MessageAdapter<Decoded> = {
+  id: string;
+  priority?: number;
+  sourceSchemas: readonly string[];
+  providedContract: ProvidedMessageContract;
+  match(meta: ChannelMeta): boolean;
+  deserialize(bytes: ArrayBufferView, meta: ChannelMeta): Decoded;
+  toJson?(msg: Decoded, meta: ChannelMeta): unknown;
+  validateInput?(msg: unknown): msg is Decoded;
+};
+
+export type MessageContractConverter<Decoded> = {
+  id: string;
+  requiresContract: RequiredMessageContract;
+  toSchemaName: string;
+  convert(
+    msg: Decoded,
+    event: Immutable<MessageEvent<Decoded>>,
+    globalVariables?: Readonly<Record<string, VariableValue>>,
+  ): unknown;
+  panelSettings?: Record<string, PanelSettings<unknown>>;
 };
 
 /**
@@ -577,6 +644,16 @@ export interface ExtensionContext {
    * you might want to selectively output a converted schema depending on the input message.
    */
   registerMessageConverter<Src>(args: RegisterMessageConverterArgs<Src>): void;
+
+  /**
+   * Register a message adapter that owns source deserialization and contract publication.
+   */
+  registerMessageAdapter<Decoded>(adapter: MessageAdapter<Decoded>): void;
+
+  /**
+   * Register a converter that runs on adapter-decoded payloads selected by contract.
+   */
+  registerMessageContractConverter<Decoded>(converter: MessageContractConverter<Decoded>): void;
 
   /**
    * Registers a new alias function with the extension context. The function will be
