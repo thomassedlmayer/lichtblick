@@ -110,12 +110,6 @@ export function buildContributionPoints(
       messageContractDecoders.push(messageContractDecoder);
     },
 
-    registerMessageAdapter: <Decoded>(
-      messageAdapter: RegisterMessageContractDecoderArgs<Decoded>,
-    ) => {
-      ctx.registerMessageContractDecoder(messageAdapter);
-    },
-
     registerMessageContractConverter: <Decoded>(
       messageContractConverter: RegisterMessageContractConverterArgs<Decoded>,
     ) => {
