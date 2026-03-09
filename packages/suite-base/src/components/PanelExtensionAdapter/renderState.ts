@@ -34,12 +34,12 @@ import {
 } from "@lichtblick/suite-base/players/types";
 import { HoverValue } from "@lichtblick/suite-base/types/hoverValue";
 
+import { isRequiredContractSatisfied } from "./contractMatching";
 import {
   collateTopicSchemaConversions,
   convertContractMessage,
   convertMessage,
   forEachSortedArrays,
-  isRequiredContractSatisfied,
   mapDifference,
   projectMessageForJsonPanels,
   TopicSchemaConversions,

@@ -370,7 +370,7 @@ function createExtensionRegistryStore(
         | "installedExtensions"
         | "installedPanels"
         | "installedMessageConverters"
-        | "installedMessageAdapters"
+        | "installedMessageContractDecoders"
         | "installedMessageContractConverters"
         | "installedTopicAliasFunctions"
         | "installedCameraModels"

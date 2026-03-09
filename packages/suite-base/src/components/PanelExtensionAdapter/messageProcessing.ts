@@ -6,7 +6,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import * as _ from "lodash-es";
-import { satisfies, valid, validRange } from "semver";
 import { Opaque } from "ts-essentials";
 
 import Logger from "@lichtblick/log";
@@ -23,42 +22,18 @@ import type {
 import { GlobalVariables } from "@lichtblick/suite-base/hooks/useGlobalVariables";
 import { Topic as PlayerTopic } from "@lichtblick/suite-base/players/types";
 
+import { isRequiredContractLike, isRequiredContractSatisfied } from "./contractMatching";
+
 // Branded string to ensure that users go through the `converterKey` function to compute a lookup key
 type ConverterKey = Opaque<string, "ConverterKey">;
 
 type ContractConverter = RegisteredMessageContractConverter;
-type RequiredContractLike = {
-  contractId: string;
-  contractVersionRange: string;
-  schemaHash?: string;
-};
-type ProvidedContractLike = {
-  contractId: string;
-  contractVersion: string;
-  schemaHash?: string;
-};
 
 type TopicSchemaConverterMap = Map<ConverterKey, MessageConverter[]>;
 type TopicSchemaContractConverterMap = Map<ConverterKey, ContractConverter[]>;
 type TopicJsonAdapterMap = Map<string, RegisterMessageContractDecoderArgs<unknown>>;
 
 const log = Logger.getLogger(__filename);
-
-function isRequiredContractLike(value: unknown): value is RequiredContractLike {
-  if (typeof value !== "object" || value == undefined) {
-    return false;
-  }
-  const maybe = value as Partial<RequiredContractLike>;
-  return typeof maybe.contractId === "string" && typeof maybe.contractVersionRange === "string";
-}
-
-function isProvidedContractLike(value: unknown): value is ProvidedContractLike {
-  if (typeof value !== "object" || value == undefined) {
-    return false;
-  }
-  const maybe = value as Partial<ProvidedContractLike>;
-  return typeof maybe.contractId === "string" && typeof maybe.contractVersion === "string";
-}
 
 // Create a string lookup key from a message event
 //
@@ -325,40 +300,6 @@ export function collateTopicSchemaConversions(
     topicSchemaContractConverters,
     topicJsonAdapters,
   };
-}
-
-export function isRequiredContractSatisfied(
-  providedContractValue: unknown,
-  requiredContractValue: unknown,
-): boolean {
-  if (!isProvidedContractLike(providedContractValue)) {
-    return false;
-  }
-  if (!isRequiredContractLike(requiredContractValue)) {
-    return false;
-  }
-  const providedContract = providedContractValue;
-  const requiredContract = requiredContractValue;
-
-  if (providedContract.contractId !== requiredContract.contractId) {
-    return false;
-  }
-  if (
-    !valid(providedContract.contractVersion) ||
-    !validRange(requiredContract.contractVersionRange)
-  ) {
-    return providedContract.contractVersion === requiredContract.contractVersionRange;
-  }
-  if (!satisfies(providedContract.contractVersion, requiredContract.contractVersionRange)) {
-    return false;
-  }
-  if (
-    requiredContract.schemaHash != undefined &&
-    providedContract.schemaHash !== requiredContract.schemaHash
-  ) {
-    return false;
-  }
-  return true;
 }
 
 /**
