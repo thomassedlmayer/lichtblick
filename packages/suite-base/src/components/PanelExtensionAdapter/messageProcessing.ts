@@ -202,6 +202,13 @@ export function collateTopicSchemaConversions(
 
       if (!subscription.convertTo) {
         unconvertedSubscriptionTopics.add(subscription.topic);
+        const topicContract = subscriberTopic.providedContract;
+        if (topicContract != undefined) {
+          const adapter = adapterByContractId.get(topicContract.contractId);
+          if (adapter?.toJson != undefined) {
+            topicJsonAdapters.set(subscription.topic, adapter);
+          }
+        }
         continue;
       }
 

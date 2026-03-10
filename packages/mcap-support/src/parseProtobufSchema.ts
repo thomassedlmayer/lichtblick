@@ -11,6 +11,36 @@ import { FileDescriptorSet } from "protobufjs/ext/descriptor";
 import { protobufDefinitionsToDatatypes, stripLeadingDot } from "./protobufDefinitionsToDatatypes";
 import { MessageDefinitionMap } from "./types";
 
+type DecodeStats = {
+  count: number;
+  totalMs: number;
+  maxMs: number;
+};
+
+const decodeStatsBySchema = new Map<string, DecodeStats>();
+const LOG_EVERY_N_MESSAGES = 500;
+
+function nowMs(): number {
+  return globalThis.performance?.now() ?? Date.now();
+}
+
+function recordDecodeTiming(schemaName: string, durationMs: number): void {
+  const stats = decodeStatsBySchema.get(schemaName) ?? { count: 0, totalMs: 0, maxMs: 0 };
+  stats.count += 1;
+  stats.totalMs += durationMs;
+  stats.maxMs = Math.max(stats.maxMs, durationMs);
+  decodeStatsBySchema.set(schemaName, stats);
+
+  if (stats.count % LOG_EVERY_N_MESSAGES === 0) {
+    const avgMs = stats.totalMs / stats.count;
+    console.info(
+      `[lichtblick-builtin][decode] schema=${schemaName} count=${stats.count} avgMs=${avgMs.toFixed(
+        3,
+      )} maxMs=${stats.maxMs.toFixed(3)}`,
+    );
+  }
+}
+
 /**
  * Parse a Protobuf binary schema (FileDescriptorSet) and produce datatypes and a deserializer
  * function.
@@ -62,10 +92,13 @@ export function parseProtobufSchema(
   fixTimeType(root.lookup(".google.protobuf.Duration"));
 
   const deserialize = (data: ArrayBufferView) => {
-    return rootType.toObject(
+    const start = nowMs();
+    const decoded = rootType.toObject(
       rootType.decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength)),
       { defaults: true },
     );
+    recordDecodeTiming(schemaName, nowMs() - start);
+    return decoded;
   };
 
   const datatypes: MessageDefinitionMap = new Map();

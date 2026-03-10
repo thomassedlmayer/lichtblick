@@ -1,0 +1,12 @@
+[submodule "asam-osi-converter"]
+	path = asam-osi-converter
+	url = git@github.com:thomassedlmayer/asam-osi-converter.git
+[submodule "asam-osi-types"]
+	path = asam-osi-types
+	url = git@github.com:thomassedlmayer/asam-osi-types.git
+[submodule "asam-osi-decoder"]
+	path = asam-osi-decoder
+	url = git@github.com:thomassedlmayer/asam-osi-decoder.git
+[submodule "asam-osi-decoder-protobufjs"]
+	path = asam-osi-decoder
+	url = git@github.com:thomassedlmayer/asam-osi-decoder-protobufjs.git
