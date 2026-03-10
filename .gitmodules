@@ -8,5 +8,5 @@
 	path = asam-osi-decoder
 	url = git@github.com:thomassedlmayer/asam-osi-decoder.git
 [submodule "asam-osi-decoder-protobufjs"]
-	path = asam-osi-decoder
+	path = asam-osi-decoder-protobufjs
 	url = git@github.com:thomassedlmayer/asam-osi-decoder-protobufjs.git

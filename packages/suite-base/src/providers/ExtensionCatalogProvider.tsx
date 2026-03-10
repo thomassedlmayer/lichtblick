@@ -392,7 +392,7 @@ function createExtensionRegistryStore(
         installedMessageConverters: installedMessageConverters?.filter(
           ({ extensionId }) => extensionId !== id,
         ),
-        installedMessageAdapters: state.installedMessageContractDecoders?.filter(
+        installedMessageContractDecoders: state.installedMessageContractDecoders?.filter(
           ({ extensionId }) => extensionId !== id,
         ),
         installedMessageContractConverters: state.installedMessageContractConverters?.filter(
