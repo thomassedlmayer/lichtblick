@@ -31,6 +31,7 @@ import * as PanelAPI from "@lichtblick/suite-base/PanelAPI";
 import useGlobalVariables, {
   GlobalVariables,
 } from "@lichtblick/suite-base/hooks/useGlobalVariables";
+import { getRegisteredMessageContractDecoders } from "@lichtblick/suite-base/players/IterablePlayer/messageAdapterRegistry";
 import { MessageEvent, Topic } from "@lichtblick/suite-base/players/types";
 import { RosDatatypes } from "@lichtblick/suite-base/types/RosDatatypes";
 import {
@@ -146,8 +147,10 @@ export function useCachedGetMessagePathDataItems(
       if (!filledInPath) {
         return;
       }
+      const topic = topicsByName[filledInPath.topicName];
+      const projectedMessage = projectMessageForPathQuery(topic, message);
       const messagePathDataItems = getMessagePathDataItems(
-        message,
+        projectedMessage,
         filledInPath,
         topicsByName,
         structures,
@@ -157,6 +160,36 @@ export function useCachedGetMessagePathDataItems(
     },
     [memoizedPaths, memoizedFilledInPaths, topicsByName, structures, enumValues],
   );
+}
+
+function projectMessageForPathQuery(topic: Topic | undefined, message: MessageEvent): MessageEvent {
+  const contractId = topic?.providedContract?.contractId;
+  if (contractId == undefined) {
+    return message;
+  }
+
+  const adapter = getRegisteredMessageContractDecoders().find(
+    (decoder) => decoder.providedContract?.contractId === contractId && decoder.toJson != undefined,
+  );
+  if (adapter?.toJson == undefined) {
+    return message;
+  }
+
+  try {
+    const projected = adapter.toJson(message.message as never, {
+      topic: message.topic,
+      schemaName: topic?.schemaName,
+      messageEncoding: topic?.messageEncoding,
+      schemaEncoding: topic?.schemaEncoding,
+      schemaData: topic?.schemaData,
+    });
+    if (projected === message.message) {
+      return message;
+    }
+    return { ...message, message: projected };
+  } catch {
+    return message;
+  }
 }
 
 export function fillInGlobalVariablesInPath(
