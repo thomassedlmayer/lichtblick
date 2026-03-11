@@ -9,12 +9,7 @@ import * as _ from "lodash-es";
 import { Opaque } from "ts-essentials";
 
 import Logger from "@lichtblick/log";
-import {
-  Immutable,
-  MessageEvent,
-  RegisterMessageContractDecoderArgs,
-  Subscription,
-} from "@lichtblick/suite";
+import { Immutable, MessageEvent, Subscription } from "@lichtblick/suite";
 import type {
   MessageConverter,
   RegisteredMessageContractConverter,
@@ -28,10 +23,26 @@ import { isRequiredContractLike, isRequiredContractSatisfied } from "./contractM
 type ConverterKey = Opaque<string, "ConverterKey">;
 
 type ContractConverter = RegisteredMessageContractConverter;
+type ChannelMetaLike = {
+  topic: string;
+  schemaName?: string;
+  messageEncoding?: string;
+  schemaEncoding?: string;
+  schemaData?: Uint8Array;
+};
+type ContractDecoder = {
+  id: string;
+  providedContract: {
+    contractId: string;
+    contractVersion: string;
+    schemaHash?: string;
+  };
+  toJson?: (msg: unknown, meta: ChannelMetaLike) => unknown;
+};
 
 type TopicSchemaConverterMap = Map<ConverterKey, MessageConverter[]>;
 type TopicSchemaContractConverterMap = Map<ConverterKey, ContractConverter[]>;
-type TopicJsonAdapterMap = Map<string, RegisterMessageContractDecoderArgs<unknown>>;
+type TopicJsonAdapterMap = Map<string, ContractDecoder>;
 
 const log = Logger.getLogger(__filename);
 
@@ -41,6 +52,26 @@ const log = Logger.getLogger(__filename);
 // values that might concatenate to the same string. i.e. "topic" "schema" and "topics" "chema".
 function converterKey(topic: string, schema: string): ConverterKey {
   return (topic + "\n" + schema) as ConverterKey;
+}
+
+function findMatchingJsonAdapter(
+  providedContract: PlayerTopic["providedContract"],
+  decoders: readonly ContractDecoder[],
+): ContractDecoder | undefined {
+  if (providedContract == undefined) {
+    return undefined;
+  }
+  const matches = decoders.filter((decoder) => {
+    if (decoder.toJson == undefined) {
+      return false;
+    }
+    return isRequiredContractSatisfied(providedContract, {
+      contractId: decoder.providedContract.contractId,
+      contractVersionRange: decoder.providedContract.contractVersion,
+      schemaHash: decoder.providedContract.schemaHash,
+    });
+  });
+  return _.minBy(matches, (decoder) => decoder.id);
 }
 
 /**
@@ -164,18 +195,14 @@ export function collateTopicSchemaConversions(
   subscriptions: readonly Subscription[],
   sortedTopics: readonly PlayerTopic[],
   messageConverters: undefined | readonly MessageConverter[],
-  messageContractDecoders?: readonly RegisterMessageContractDecoderArgs<unknown>[],
+  messageContractDecoders?: readonly ContractDecoder[],
   messageContractConverters?: readonly ContractConverter[],
 ): TopicSchemaConversions {
   const topicSchemaConverters: TopicSchemaConverterMap = new Map();
   const topicSchemaContractConverters: TopicSchemaContractConverterMap = new Map();
   const topicJsonAdapters: TopicJsonAdapterMap = new Map();
   const unconvertedSubscriptionTopics = new Set<string>();
-  const adapterByContractId = new Map(
-    (messageContractDecoders ?? [])
-      .filter((adapter) => adapter.providedContract != undefined)
-      .map((adapter) => [adapter.providedContract.contractId, adapter] as const),
-  );
+  const contractDecoders = messageContractDecoders ?? [];
 
   // Bin the subscriptions into two sets: those which want a conversion and those that do not.
   //
@@ -202,12 +229,9 @@ export function collateTopicSchemaConversions(
 
       if (!subscription.convertTo) {
         unconvertedSubscriptionTopics.add(subscription.topic);
-        const topicContract = subscriberTopic.providedContract;
-        if (topicContract != undefined) {
-          const adapter = adapterByContractId.get(topicContract.contractId);
-          if (adapter?.toJson != undefined) {
-            topicJsonAdapters.set(subscription.topic, adapter);
-          }
+        const adapter = findMatchingJsonAdapter(subscriberTopic.providedContract, contractDecoders);
+        if (adapter != undefined) {
+          topicJsonAdapters.set(subscription.topic, adapter);
         }
         continue;
       }
@@ -234,12 +258,9 @@ export function collateTopicSchemaConversions(
 
     if (!subscription.convertTo) {
       unconvertedSubscriptionTopics.add(subscription.topic);
-      const topicContract = subscriberTopic.providedContract;
-      if (topicContract != undefined) {
-        const adapter = adapterByContractId.get(topicContract.contractId);
-        if (adapter?.toJson != undefined) {
-          topicJsonAdapters.set(subscription.topic, adapter);
-        }
+      const adapter = findMatchingJsonAdapter(subscriberTopic.providedContract, contractDecoders);
+      if (adapter != undefined) {
+        topicJsonAdapters.set(subscription.topic, adapter);
       }
       continue;
     }

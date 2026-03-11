@@ -28,6 +28,7 @@ import {
 } from "@lichtblick/message-path";
 import { Immutable } from "@lichtblick/suite";
 import * as PanelAPI from "@lichtblick/suite-base/PanelAPI";
+import { isRequiredContractSatisfied } from "@lichtblick/suite-base/components/PanelExtensionAdapter/contractMatching";
 import useGlobalVariables, {
   GlobalVariables,
 } from "@lichtblick/suite-base/hooks/useGlobalVariables";
@@ -163,13 +164,23 @@ export function useCachedGetMessagePathDataItems(
 }
 
 function projectMessageForPathQuery(topic: Topic | undefined, message: MessageEvent): MessageEvent {
-  const contractId = topic?.providedContract?.contractId;
-  if (contractId == undefined) {
+  const topicContract = topic?.providedContract;
+  if (topicContract == undefined) {
     return message;
   }
 
-  const adapter = getRegisteredMessageContractDecoders().find(
-    (decoder) => decoder.providedContract?.contractId === contractId && decoder.toJson != undefined,
+  const adapter = _.minBy(
+    getRegisteredMessageContractDecoders().filter((decoder) => {
+      if (decoder.toJson == undefined) {
+        return false;
+      }
+      return isRequiredContractSatisfied(topicContract, {
+        contractId: decoder.providedContract.contractId,
+        contractVersionRange: decoder.providedContract.contractVersion,
+        schemaHash: decoder.providedContract.schemaHash,
+      });
+    }),
+    (decoder) => decoder.id,
   );
   if (adapter?.toJson == undefined) {
     return message;
