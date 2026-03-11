@@ -250,7 +250,7 @@ function initRenderStateBuilder(): BuildRenderStateFn {
               if (typeof converter.toSchemaName !== "string") {
                 continue;
               }
-              const toSchemaName = String(converter.toSchemaName);
+              const toSchemaName = converter.toSchemaName;
               if (
                 isRequiredContractSatisfied(topic.providedContract, converter.requiresContract) &&
                 !convertibleTo.includes(toSchemaName)
@@ -281,16 +281,19 @@ function initRenderStateBuilder(): BuildRenderStateFn {
         // Unconverted messages are only processed on a new frame.
         const postProcessedFrame: MessageEvent[] = [];
         for (const messageEvent of currentFrame) {
+          const messageEventForLegacyConverters = projectMessageForJsonPanels(
+            messageEvent,
+            topicJsonAdapters,
+            topicMetaByName,
+          );
           if (unconvertedSubscriptionTopics.has(messageEvent.topic)) {
-            postProcessedFrame.push(
-              projectMessageForJsonPanels(messageEvent, topicJsonAdapters, topicMetaByName),
-            );
+            postProcessedFrame.push(messageEventForLegacyConverters);
           }
 
           const schemaName = topicToSchemaNameMap[messageEvent.topic];
           if (schemaName) {
             convertMessage(
-              { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
+              { ...messageEventForLegacyConverters, topicConfig: configTopics[messageEvent.topic] },
               topicSchemaConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
@@ -311,10 +314,15 @@ function initRenderStateBuilder(): BuildRenderStateFn {
         // only the new conversions on our most recent message on each topic.
         const postProcessedFrame: MessageEvent[] = [];
         for (const messageEvent of lastMessageByTopic.values()) {
+          const messageEventForLegacyConverters = projectMessageForJsonPanels(
+            messageEvent,
+            topicJsonAdapters,
+            topicMetaByName,
+          );
           const schemaName = topicToSchemaNameMap[messageEvent.topic];
           if (schemaName) {
             convertMessage(
-              { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
+              { ...messageEventForLegacyConverters, topicConfig: configTopics[messageEvent.topic] },
               newConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
@@ -334,10 +342,15 @@ function initRenderStateBuilder(): BuildRenderStateFn {
         // all conversions on our most recent message on each topic.
         const postProcessedFrame: MessageEvent[] = [];
         for (const messageEvent of lastMessageByTopic.values()) {
+          const messageEventForLegacyConverters = projectMessageForJsonPanels(
+            messageEvent,
+            topicJsonAdapters,
+            topicMetaByName,
+          );
           const schemaName = topicToSchemaNameMap[messageEvent.topic];
           if (schemaName) {
             convertMessage(
-              { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
+              { ...messageEventForLegacyConverters, topicConfig: configTopics[messageEvent.topic] },
               topicSchemaConverters,
               postProcessedFrame,
               { ...globalVariables } as Readonly<GlobalVariables>,
@@ -398,11 +411,19 @@ function initRenderStateBuilder(): BuildRenderStateFn {
                   projectMessageForJsonPanels(messageEvent, topicJsonAdapters, topicMetaByName),
                 );
               }
+              const messageEventForLegacyConverters = projectMessageForJsonPanels(
+                messageEvent,
+                topicJsonAdapters,
+                topicMetaByName,
+              );
 
               const schemaName = topicToSchemaNameMap[messageEvent.topic];
               if (schemaName) {
                 convertMessage(
-                  { ...messageEvent, topicConfig: configTopics[messageEvent.topic] },
+                  {
+                    ...messageEventForLegacyConverters,
+                    topicConfig: configTopics[messageEvent.topic],
+                  },
                   topicSchemaConverters,
                   frames,
                 );
@@ -468,8 +489,13 @@ function initRenderStateBuilder(): BuildRenderStateFn {
           continue;
         }
 
+        const messageEventForLegacyConverters = projectMessageForJsonPanels(
+          messageEvent,
+          topicJsonAdapters,
+          topicMetaByName,
+        );
         convertMessage(
-          { ...messageEvent, topicConfig: configTopics[topic] },
+          { ...messageEventForLegacyConverters, topicConfig: configTopics[topic] },
           topicSchemaConverters,
           postProcessedFrame,
         );

@@ -17,8 +17,12 @@ import { IteratorResult } from "../../players/IterablePlayer/IIterableSource";
 // Mock the message processing module
 jest.mock("./messageProcessing", () => ({
   convertMessage: jest.fn(),
+  convertContractMessage: jest.fn(),
+  projectMessageForJsonPanels: jest.fn((message) => message),
   collateTopicSchemaConversions: jest.fn().mockReturnValue({
     topicSchemaConverters: new Map(),
+    topicSchemaContractConverters: new Map(),
+    topicJsonAdapters: new Map(),
     unconvertedSubscriptionTopics: new Set(),
   }),
 }));
@@ -34,6 +38,8 @@ describe("createMessageRangeIterator", () => {
     const { collateTopicSchemaConversions } = jest.requireMock("./messageProcessing");
     collateTopicSchemaConversions.mockReturnValue({
       topicSchemaConverters: new Map(),
+      topicSchemaContractConverters: new Map(),
+      topicJsonAdapters: new Map(),
       unconvertedSubscriptionTopics: new Set([mockTopic]),
     });
   });
@@ -298,6 +304,8 @@ describe("createMessageRangeIterator", () => {
     // Mock to include topic schema converters
     collateTopicSchemaConversions.mockReturnValue({
       topicSchemaConverters: new Map([["test_key", jest.fn()]]),
+      topicSchemaContractConverters: new Map(),
+      topicJsonAdapters: new Map(),
       unconvertedSubscriptionTopics: new Set(),
     });
 

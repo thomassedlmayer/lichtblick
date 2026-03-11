@@ -211,7 +211,19 @@ export function collateTopicSchemaConversions(
   for (const subscription of subscriptions) {
     const subscriberTopic = sortedTopics.find((topic) => topic.name === subscription.topic);
     if (!subscriberTopic) {
+      // Keep legacy behavior: raw subscriptions still pass through even when topic metadata
+      // is not present in sortedTopics for the current render tick.
+      if (!subscription.convertTo) {
+        unconvertedSubscriptionTopics.add(subscription.topic);
+      }
       continue;
+    }
+    const topicJsonAdapter = findMatchingJsonAdapter(
+      subscriberTopic.providedContract,
+      contractDecoders,
+    );
+    if (topicJsonAdapter != undefined) {
+      topicJsonAdapters.set(subscription.topic, topicJsonAdapter);
     }
 
     if (isRequiredContractLike(subscription.requiresContract)) {
@@ -229,10 +241,6 @@ export function collateTopicSchemaConversions(
 
       if (!subscription.convertTo) {
         unconvertedSubscriptionTopics.add(subscription.topic);
-        const adapter = findMatchingJsonAdapter(subscriberTopic.providedContract, contractDecoders);
-        if (adapter != undefined) {
-          topicJsonAdapters.set(subscription.topic, adapter);
-        }
         continue;
       }
 
@@ -258,10 +266,6 @@ export function collateTopicSchemaConversions(
 
     if (!subscription.convertTo) {
       unconvertedSubscriptionTopics.add(subscription.topic);
-      const adapter = findMatchingJsonAdapter(subscriberTopic.providedContract, contractDecoders);
-      if (adapter != undefined) {
-        topicJsonAdapters.set(subscription.topic, adapter);
-      }
       continue;
     }
 

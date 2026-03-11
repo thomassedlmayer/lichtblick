@@ -91,9 +91,14 @@ export function createMessageRangeIterator(params: CreateMessageRangeIteratorPar
               projectMessageForJsonPanels(msgEvent, topicJsonAdapters, topicMetaByName),
             );
           }
+          const messageEventForLegacyConverters = projectMessageForJsonPanels(
+            msgEvent,
+            topicJsonAdapters,
+            topicMetaByName,
+          );
           // Apply message conversion if converters exist
           if (topicSchemaConverters.size > 0) {
-            convertMessage(msgEvent, topicSchemaConverters, batchMessages);
+            convertMessage(messageEventForLegacyConverters, topicSchemaConverters, batchMessages);
           }
           if (topicSchemaContractConverters.size > 0) {
             convertContractMessage(msgEvent, topicSchemaContractConverters, batchMessages);
