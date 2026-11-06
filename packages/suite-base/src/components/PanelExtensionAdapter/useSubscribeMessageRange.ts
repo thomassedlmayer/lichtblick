@@ -10,6 +10,7 @@ import {
   ExtensionCatalog,
   useExtensionCatalog,
 } from "@lichtblick/suite-base/context/ExtensionCatalogContext";
+import { channelCatalog, resolveChannelSubscription } from "@lichtblick/suite-base/util/channels";
 
 import { createMessageRangeIterator } from "./messageRangeIterator";
 import { MessageConverterAlertHandler } from "./types";
@@ -50,16 +51,33 @@ export function useSubscribeMessageRange(
   panelTypeRef.current = panelType;
 
   return useCallback(
-    ({ topic, convertTo, converterId, onNewRangeIterator }: SubscribeMessageRangeArgs) => {
+    ({
+      topic,
+      channelId,
+      convertTo,
+      converterId,
+      onNewRangeIterator,
+    }: SubscribeMessageRangeArgs) => {
       const { sortedTopics, getBatchIterator } = getMessagePipelineContext();
 
-      const rawBatchIterator = getBatchIterator(topic);
+      const selected = resolveChannelSubscription(
+        { topic, channelId, convertTo, converterId },
+        channelCatalog(sortedTopics, messageConvertersRef.current),
+      );
+      if (selected == undefined) {
+        return () => {};
+      }
+      const rawBatchIterator =
+        selected.channelId == undefined
+          ? getBatchIterator(topic)
+          : getBatchIterator(topic, { channelId: selected.channelId });
       if (!rawBatchIterator) {
         return () => {};
       }
 
       const { iterable: messageEventIterable, cancel } = createMessageRangeIterator({
         topic,
+        channelId,
         convertTo,
         converterId,
         config: configRef.current,
